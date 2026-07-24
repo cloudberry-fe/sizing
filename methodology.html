@@ -61,8 +61,9 @@ storageNodes = CEIL( needTB ÷ arrayTB )      # arrayTB = 单节点 RAID 后可�
 <tbody>
 <tr><td>基础款 · SAS</td><td>2×32C / 512G</td><td>24 × 1.2TB 10K SAS</td><td>每 12 盘一组 RAID5 ×2（22 盘可用）</td><td>26.4 TB</td><td>2×10GbE</td></tr>
 <tr><td>高吞吐款 · SSD</td><td>2×32C / 1024G</td><td>24 × 960GB SSD</td><td>同上</td><td>21.1 TB</td><td>2×10GbE/25GbE</td></tr>
-<tr><td>现代款 · NVMe</td><td>2×32C / 1024G DDR5</td><td>12 × 3.84TB NVMe U.2</td><td>RAID5（11 盘可用）</td><td>42.2 TB</td><td>2×25GbE</td></tr>
+<tr><td>现代款 · NVMe</td><td>2×32C / 1024G DDR5</td><td>12 × 3.84TB NVMe U.2</td><td>RAID5（11 盘可用，需三模 RAID 卡或 VROC）</td><td>42.2 TB</td><td>2×25GbE</td></tr>
 </tbody></table></div>
+<p>NVMe 的 RAID 说明：主流 2U 机型支持 12–24 个 U.2/U.3 直连盘位；NVMe 硬件 RAID5 需三模（tri-mode）RAID 卡（如 Dell PERC H755N/H965i、Broadcom MegaRAID 9560/9600 系）或 Intel VROC。另一常见路线是 NVMe 不做 RAID（JBOD、每盘独立 XFS），冗余完全依赖 primary/mirror——吞吐更高，但单盘故障即触发 mirror 接管，本工具默认按更保守的 RAID5 计算容量。</p>
 <p>Coordinator 固定 2 台（主+备），同级 CPU/内存，系统盘 RAID1 + 小容量数据阵列。计算约束按整机物理核数（64C）与内存代入通用公式。</p>
 <p class="en">Storage: data ×2 (mirror), ÷0.9 OS/FS overhead, ÷0.8 to keep 20% free, divided by the per-node usable RAID capacity. Compute uses the common rule with 64 physical cores per node. Coordinator ×2 fixed.</p>
 
