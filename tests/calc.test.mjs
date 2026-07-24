@@ -94,3 +94,31 @@ test('cloud azure 50TB cr=1 matches sheet: 88 nodes', () => {
   assert.equal(r.binding.storageNodes, 88); // TRUNC(50/(1.92*0.3))+2=88
   assert.equal(r.roles.find(x => x.key === 'datanode').count, 88);
 });
+
+import { calcEnterprise, summarize } from '../js/calc.js';
+
+test('enterprise segment counts across tiers (1000TB)', () => {
+  assert.equal(calcEnterprise({ dataTB: 1000, tierId: 'spec1' })
+    .roles.find(x => x.key === 'segment').count, 1000);
+  assert.equal(calcEnterprise({ dataTB: 1000, tierId: 'spec3' })
+    .roles.find(x => x.key === 'segment').count, 500);
+  assert.equal(calcEnterprise({ dataTB: 1000, tierId: 'spec5' })
+    .roles.find(x => x.key === 'segment').count, 250);
+});
+
+test('enterprise floors at 2 segments and carries fixed platform roles', () => {
+  const r = calcEnterprise({ dataTB: 1, tierId: 'spec1' });
+  assert.equal(r.roles.find(x => x.key === 'segment').count, 2);
+  assert.equal(r.roles.find(x => x.key === 'unionstore').count, 4);
+  assert.equal(r.roles.find(x => x.key === 'platform').count, 11);
+  assert.equal(r.roles.find(x => x.key === 'proxy').count, 1);
+  assert.equal(r.binding, null);
+});
+
+test('summarize totals count*spec and skips nulls', () => {
+  const s = summarize([
+    { key: 'a', count: 2, cpu: 8, memGB: 32, storageTB: 2 },
+    { key: 'b', count: 1, cpu: null, memGB: null, storageTB: null },
+  ]);
+  assert.deepEqual(s, { nodes: 3, cpu: 16, memGB: 64, storageTB: 4 });
+});

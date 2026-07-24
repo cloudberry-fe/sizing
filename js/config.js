@@ -22,3 +22,20 @@ export const CLOUD = {
   azure:    { instance: 'Standard_L8s_v3',     vcpu: 8, memGB: 64, storageTB: 1.92, network: '12.5-32Gbps',  oss: 'Azure Blob' },
   gcp:      { instance: 'c3d-standard-8-lssd', vcpu: 8, memGB: 32, storageTB: 2,    network: '20Gbps',       oss: 'Google Cloud Storage' },
 };
+
+export const ENTERPRISE_TIERS = [
+  { id: 'spec1', concurrency: 10, proxy: { vcpu: 4,  memGB: 32, storageTB: 0.5 }, segment: { vcpu: 4,  memGB: 16, storageTB: 0.5 }, tbPerSegment: 1 },
+  { id: 'spec2', concurrency: 20, proxy: { vcpu: 8,  memGB: 32, storageTB: 0.5 }, segment: { vcpu: 8,  memGB: 16, storageTB: 0.5 }, tbPerSegment: 1 },
+  { id: 'spec3', concurrency: 30, proxy: { vcpu: 16, memGB: 32, storageTB: 0.5 }, segment: { vcpu: 8,  memGB: 32, storageTB: 1   }, tbPerSegment: 2 },
+  { id: 'spec4', concurrency: 40, proxy: { vcpu: 16, memGB: 48, storageTB: 0.5 }, segment: { vcpu: 16, memGB: 32, storageTB: 1   }, tbPerSegment: 2 },
+  { id: 'spec5', concurrency: 80, proxy: { vcpu: 16, memGB: 64, storageTB: 0.5 }, segment: { vcpu: 16, memGB: 64, storageTB: 1   }, tbPerSegment: 4 },
+];
+
+export const ENTERPRISE_FIXED = [
+  { key: 'unionstore',    count: 4,  cpu: 16,  memGB: 32, storageTB: 0.5, noteKey: 'note.unionstore' },
+  { key: 'metaproxy',     count: 1,  cpu: 2,   memGB: 4,  storageTB: 0.1, noteKey: 'note.metaproxy' },
+  { key: 'storagebroker', count: 1,  cpu: 1,   memGB: 2,  storageTB: null, noteKey: 'note.storagebroker' },
+  { key: 'platform',      count: 11, cpu: 0.5, memGB: 1,  storageTB: null, noteKey: 'note.platform' },
+  { key: 'oss',           count: 1,  cpu: null, memGB: null, storageTB: null, noteKey: 'note.oss' },
+  { key: 'lb',            count: 1,  cpu: null, memGB: null, storageTB: null, noteKey: 'note.lb' },
+];

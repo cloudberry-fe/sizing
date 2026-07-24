@@ -1,4 +1,4 @@
-import { COMPUTE_RULE, PHYSICAL_TIERS, PHYSICAL_NODE, VM_NODE, CLOUD } from './config.js';
+import { COMPUTE_RULE, PHYSICAL_TIERS, PHYSICAL_NODE, VM_NODE, CLOUD, ENTERPRISE_TIERS, ENTERPRISE_FIXED } from './config.js';
 
 export function toTB(value, unit) {
   if (unit === 'GB') return value / 1024;
@@ -83,4 +83,34 @@ export function calcCloud({ dataTB, compressionRatio, cloudId }) {
     extraRoles: [{ key: 'oss', count: 1, cpu: null, memGB: null, storageTB: null,
                    instance: c.oss, noteKey: 'note.oss' }],
   });
+}
+
+export function calcEnterprise({ dataTB, tierId }) {
+  const tier = ENTERPRISE_TIERS.find(t => t.id === tierId);
+  const segments = Math.max(2, Math.ceil(dataTB / tier.tbPerSegment));
+  return {
+    product: 'enterprise',
+    roles: [
+      ...ENTERPRISE_FIXED,
+      { key: 'proxy', count: 1, ...toRoleSpec(tier.proxy), noteKey: 'note.proxy' },
+      { key: 'segment', count: segments, ...toRoleSpec(tier.segment), noteKey: 'note.segment.enterprise' },
+    ],
+    binding: null,
+    capacityTB: null,
+  };
+}
+
+function toRoleSpec(s) {
+  return { cpu: s.vcpu, memGB: s.memGB, storageTB: s.storageTB };
+}
+
+export function summarize(roles) {
+  const s = { nodes: 0, cpu: 0, memGB: 0, storageTB: 0 };
+  for (const r of roles) {
+    s.nodes += r.count;
+    if (r.cpu != null) s.cpu += r.count * r.cpu;
+    if (r.memGB != null) s.memGB += r.count * r.memGB;
+    if (r.storageTB != null) s.storageTB += r.count * r.storageTB;
+  }
+  return s;
 }
