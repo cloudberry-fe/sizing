@@ -32,7 +32,6 @@ function populatePresetCards() {
     <button type="button" class="preset-card${p.id === state.presetId ? ' selected' : ''}" data-preset="${p.id}">
       <span class="preset-name">${t('preset.' + p.id, state.lang)}</span>
       <span class="preset-desc">${t('preset.' + p.id + '.desc', state.lang)}</span>
-      <span class="preset-src">${t(p.sourceKey, state.lang)}</span>
     </button>`).join('');
 }
 
@@ -113,12 +112,6 @@ function compute() {
     hint.textContent = fmt('vmprofile.picked', { p: r.profileId.charAt(0).toUpperCase() + r.profileId.slice(1) });
     hint.hidden = false;
   } else hint.hidden = true;
-
-  const src = $('source-line');
-  if (r.sourceKey) {
-    src.hidden = false;
-    src.textContent = `${t('source.label', state.lang)}: ${t(r.sourceKey, state.lang)}`;
-  } else src.hidden = true;
 
   const scheme = CLOUD_SCHEMES.find(x => x.id === state.schemeId);
   $('network-line').textContent =

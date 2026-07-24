@@ -39,12 +39,6 @@ export const STRINGS = {
   'scheme.managed':   { zh: '云盘方案', en: 'Managed-disk' },
   'scheme.local':     { zh: '本地盘方案', en: 'Local-NVMe' },
 
-  'source.label':     { zh: '方案来源', en: 'Source' },
-  'source.fin2023':      { zh: '金融行业客户生产实践（2023）', en: 'fin-industry CBDB hardware recommendation (2023)' },
-  'source.mainstream':{ zh: '2025 主流硬件实践', en: '2025 mainstream hardware practice' },
-  'source.gp77':      { zh: 'MPP 7.7 官方云平台技术建议', en: 'MPP 7.7 official Cloud Technical Recommendations' },
-  'source.hashdata':  { zh: 'HashData 部署规范（2025）', en: 'HashData Deployment Specification (2025)' },
-
   'bom.cpu':          { zh: 'CPU', en: 'CPU' },
   'bom.mem':          { zh: '内存', en: 'Memory' },
   'bom.sysdisk':      { zh: '系统盘', en: 'System disk' },
