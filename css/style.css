@@ -95,6 +95,8 @@ input[type=number]:focus, select:focus {
 .preset-desc { color: var(--fg-soft); font-size: .84rem; }
 
 .hint { color: var(--fg-soft); font-size: .85rem; margin: 8px 0 0; }
+.check-row { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-weight: 600; font-size: .92rem; }
+.check-row input { width: 16px; height: 16px; accent-color: var(--accent); }
 #advanced summary { cursor: pointer; font-weight: 600; font-size: .92rem; color: var(--fg-soft); }
 .adv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 260px)); gap: 12px; margin-top: 12px; }
 .adv-grid label span { display: block; margin-bottom: 6px; }

@@ -19,6 +19,8 @@ export const STRINGS = {
   'conc.high':        { zh: '高（≤120 并发，资源 ×1.5）', en: 'High (≤120 concurrent, resources ×1.5)' },
   'conc.xhigh':       { zh: '很高（≤160 并发，资源 ×2）', en: 'Very high (≤160 concurrent, resources ×2)' },
   'nav.method':       { zh: '计算方法说明', en: 'Methodology' },
+  'adv.enablecss':    { zh: '包含存算分离版本评估', en: 'Include compute-storage-separation edition' },
+  'adv.enablecss.hint': { zh: '存算分离（容器/K8s）形态为基于 Cloudberry 的商业产品，默认不参与评估', en: 'The compute-storage-separation (container/K8s) form factor is a commercial product built on Cloudberry; excluded by default' },
   'adv.enttier':      { zh: '并发档位', en: 'Concurrency tier' },
   'enttier.label':    { zh: '（并发 ≤ {n}）', en: '(concurrency ≤ {n})' },
 

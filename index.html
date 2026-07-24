@@ -39,7 +39,7 @@
           <button type="button" data-infra="physical" class="active" data-i18n="infra.physical"></button>
           <button type="button" data-infra="vm" data-i18n="infra.vm"></button>
           <button type="button" data-infra="cloud" data-i18n="infra.cloud"></button>
-          <button type="button" data-infra="container" data-i18n="infra.container"></button>
+          <button type="button" data-infra="container" data-i18n="infra.container" hidden></button>
         </div>
       </div>
     </div>
@@ -65,18 +65,23 @@
       <select id="ent-tier"></select>
     </div>
 
-    <details id="advanced" class="adv" data-for="physical vm cloud">
+    <details id="advanced" class="adv" data-for="physical vm cloud container">
       <summary data-i18n="advanced"></summary>
       <div class="adv-grid">
-        <label>
+        <label class="lightning-only">
           <span data-i18n="adv.compression"></span>
           <input id="compression" type="number" min="1" step="0.5" value="2">
         </label>
-        <label>
+        <label class="lightning-only">
           <span data-i18n="adv.concurrency"></span>
           <select id="concurrency"></select>
         </label>
       </div>
+      <label class="check-row">
+        <input id="enable-css" type="checkbox">
+        <span data-i18n="adv.enablecss"></span>
+      </label>
+      <p class="hint" data-i18n="adv.enablecss.hint"></p>
     </details>
     <p id="input-error" class="warn" hidden data-i18n="err.invalid"></p>
   </section>

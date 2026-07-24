@@ -154,7 +154,18 @@ function showAdvancedFor(infra) {
   document.querySelectorAll('.adv').forEach(el => {
     el.hidden = !el.dataset.for.split(' ').includes(infra);
   });
+  document.querySelectorAll('.lightning-only').forEach(el => {
+    el.hidden = infra === 'container';
+  });
 }
+
+$('enable-css').addEventListener('input', () => {
+  const on = $('enable-css').checked;
+  document.querySelector('#infra-tabs button[data-infra="container"]').hidden = !on;
+  if (!on && state.infra === 'container') {
+    document.querySelector('#infra-tabs button[data-infra="physical"]').click();
+  }
+});
 
 $('infra-tabs').addEventListener('click', e => {
   const btn = e.target.closest('button[data-infra]');
