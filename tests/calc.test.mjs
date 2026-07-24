@@ -6,7 +6,7 @@ import {
   vmUsableTB, recommendVMProfile, calcVM, calcCloud,
   calcEnterprise, summarize,
 } from '../js/calc.js';
-import { PHYSICAL_PRESETS, VM_PROFILES, CLOUD_SCHEMES } from '../js/config.js';
+import { PHYSICAL_PRESETS, VM_PROFILES, CLOUD_SCHEMES, ENTERPRISE_SEGMENT } from '../js/config.js';
 
 const role = (r, key) => r.roles.find(x => x.key === key);
 
@@ -150,16 +150,28 @@ test('every cloud scheme resolves with coordinator+segment', () => {
   }
 });
 
-// --- Enterprise (unchanged from v1) ---
+// --- Enterprise (unified concurrency model: 8c32G per 1TB segment at <=80) ---
 
-test('enterprise segment counts across tiers (1000TB)', () => {
-  assert.equal(role(calcEnterprise({ dataTB: 1000, tierId: 'spec1' }), 'segment').count, 1000);
-  assert.equal(role(calcEnterprise({ dataTB: 1000, tierId: 'spec3' }), 'segment').count, 500);
-  assert.equal(role(calcEnterprise({ dataTB: 1000, tierId: 'spec5' }), 'segment').count, 250);
+test('enterprise: 1TB per segment, 8c/32G at standard concurrency', () => {
+  const r = calcEnterprise({ dataTB: 1000 });
+  const seg = role(r, 'segment');
+  assert.equal(seg.count, 1000);
+  assert.equal(seg.cpu, 8);
+  assert.equal(seg.memGB, 32);
+  assert.equal(role(r, 'proxy').count, 1);
+});
+
+test('enterprise concurrency factor scales segment spec, adds proxy instance', () => {
+  const r = calcEnterprise({ dataTB: 100, concurrencyFactor: 2 });
+  const seg = role(r, 'segment');
+  assert.equal(seg.count, 100);      // segment count driven by data, not concurrency
+  assert.equal(seg.cpu, 16);
+  assert.equal(seg.memGB, 64);
+  assert.equal(role(r, 'proxy').count, 2);
 });
 
 test('enterprise floors at 2 segments and carries fixed platform roles', () => {
-  const r = calcEnterprise({ dataTB: 1, tierId: 'spec1' });
+  const r = calcEnterprise({ dataTB: 1 });
   assert.equal(role(r, 'segment').count, 2);
   assert.equal(role(r, 'unionstore').count, 4);
   assert.equal(role(r, 'platform').count, 11);
@@ -180,13 +192,15 @@ test('summarize totals count*spec and skips nulls', () => {
 test('cpuUnitKey: cores on physical, vCPU elsewhere', () => {
   assert.equal(role(calcPhysical({ dataTB: 10, compressionRatio: 2, presetId: 'ssd_perf' }), 'segment').cpuUnitKey, 'unit.cores');
   assert.equal(role(calcVM({ dataTB: 10, compressionRatio: 2, profileId: 'lite' }), 'datanode').cpuUnitKey, 'unit.vcpu');
-  assert.equal(role(calcEnterprise({ dataTB: 10, tierId: 'spec1' }), 'segment').cpuUnitKey, 'unit.vcpu');
+  assert.equal(role(calcEnterprise({ dataTB: 10 }), 'segment').cpuUnitKey, 'unit.vcpu');
 });
 
-test('config sanity: presets/profiles/schemes counts', () => {
+test('config sanity: presets/profiles/schemes counts, enterprise density = MPP rule', () => {
   assert.equal(PHYSICAL_PRESETS.length, 3);
   assert.equal(VM_PROFILES.length, 3);
   assert.equal(CLOUD_SCHEMES.length, 6);
+  assert.equal(ENTERPRISE_SEGMENT.vcpuPerTB, 8);
+  assert.equal(ENTERPRISE_SEGMENT.memGBPerTB, 32);
 });
 
 test('concurrency factor scales compute constraint only (default unchanged)', () => {

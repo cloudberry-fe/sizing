@@ -1,4 +1,4 @@
-import { COMPUTE_RULE, PHYSICAL_PRESETS, VM_PROFILES, VM_COORD, CLOUD_SCHEMES, ENTERPRISE_TIERS, ENTERPRISE_FIXED } from './config.js';
+import { COMPUTE_RULE, PHYSICAL_PRESETS, VM_PROFILES, VM_COORD, CLOUD_SCHEMES, ENTERPRISE_SEGMENT, ENTERPRISE_PROXY, ENTERPRISE_FIXED } from './config.js';
 
 export function toTB(value, unit) {
   if (unit === 'GB') return value / 1024;
@@ -155,23 +155,25 @@ export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFacto
   };
 }
 
-export function calcEnterprise({ dataTB, tierId }) {
-  const tier = ENTERPRISE_TIERS.find(t => t.id === tierId);
-  const segments = Math.max(2, Math.ceil(dataTB / tier.tbPerSegment));
+export function calcEnterprise({ dataTB, concurrencyFactor = 1 }) {
+  const segments = Math.max(2, Math.ceil(dataTB / ENTERPRISE_SEGMENT.tbPerSegment));
+  const proxyCount = concurrencyFactor > 1 ? 2 : 1;
   return {
     product: 'enterprise',
     roles: [
       ...ENTERPRISE_FIXED,
-      { key: 'proxy', count: 1, ...toRoleSpec(tier.proxy), noteKey: 'note.proxy' },
-      { key: 'segment', count: segments, ...toRoleSpec(tier.segment), noteKey: 'note.segment.enterprise' },
+      { key: 'proxy', count: proxyCount, cpu: ENTERPRISE_PROXY.vcpu, memGB: ENTERPRISE_PROXY.memGB,
+        storageTB: ENTERPRISE_PROXY.storageTB, cpuUnitKey: 'unit.vcpu', noteKey: 'note.proxy' },
+      { key: 'segment', count: segments,
+        cpu: ENTERPRISE_SEGMENT.vcpuPerTB * concurrencyFactor,
+        memGB: ENTERPRISE_SEGMENT.memGBPerTB * concurrencyFactor,
+        storageTB: ENTERPRISE_SEGMENT.storageTB, cpuUnitKey: 'unit.vcpu',
+        noteKey: 'note.segment.enterprise',
+        bom: [{ labelKey: 'bom.perseg', value: `${ENTERPRISE_SEGMENT.tbPerSegment} TB` }] },
     ],
     binding: null,
     capacityTB: null,
   };
-}
-
-function toRoleSpec(s) {
-  return { cpu: s.vcpu, memGB: s.memGB, storageTB: s.storageTB, cpuUnitKey: 'unit.vcpu' };
 }
 
 export function summarize(roles) {

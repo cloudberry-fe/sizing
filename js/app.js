@@ -1,5 +1,5 @@
 import { toTB, calcPhysical, calcVM, calcCloud, calcEnterprise, summarize, recommendVMProfile } from './calc.js';
-import { PHYSICAL_PRESETS, VM_PROFILES, CLOUD_SCHEMES, ENTERPRISE_TIERS, CONCURRENCY_LEVELS } from './config.js';
+import { PHYSICAL_PRESETS, VM_PROFILES, CLOUD_SCHEMES, CONCURRENCY_LEVELS } from './config.js';
 import { t } from './i18n.js';
 
 function readStoredLang() {
@@ -58,13 +58,6 @@ function populateConcurrency() {
   if (prev) $('concurrency').value = prev;
 }
 
-function populateEntTier() {
-  const prev = $('ent-tier').value;
-  $('ent-tier').innerHTML = ENTERPRISE_TIERS
-    .map(x => `<option value="${x.id}">Spec-${x.id.slice(4)} ${fmt('enttier.label', { n: x.concurrency })}</option>`).join('');
-  if (prev) $('ent-tier').value = prev;
-}
-
 function applyLang() {
   document.documentElement.lang = state.lang;
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n, state.lang); });
@@ -72,7 +65,6 @@ function applyLang() {
   populatePresetCards();
   populateVMProfile();
   populateCloudScheme();
-  populateEntTier();
   populateConcurrency();
 }
 
@@ -110,7 +102,7 @@ function compute() {
   } else if (state.infra === 'cloud') {
     r = calcCloud({ dataTB, compressionRatio, schemeId: state.schemeId, concurrencyFactor });
   } else {
-    r = calcEnterprise({ dataTB, tierId: $('ent-tier').value });
+    r = calcEnterprise({ dataTB, concurrencyFactor });
   }
 
   $('huge-warning').hidden = dataTB <= 10240;
@@ -194,7 +186,7 @@ $('lang-toggle').addEventListener('click', () => {
   compute();
 });
 
-['data-size', 'data-unit', 'compression', 'concurrency', 'ent-tier']
+['data-size', 'data-unit', 'compression', 'concurrency']
   .forEach(id => $(id).addEventListener('input', compute));
 
 applyLang();

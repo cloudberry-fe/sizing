@@ -151,24 +151,12 @@ storageNodes = evenUp( TRUNC( onDiskTB ÷ usableTB ) + 2 )   # +2 headroom</pre>
 <p class="en">Extra guidance: on Azure use the UDP interconnect and reserve port 65330; on GCP prefer more, smaller nodes (vs AWS).</p>
 
 <h2>6. <span class="zh">容器 / K8s · 存算分离</span><span class="en">Container / K8s · Compute-storage separation</span></h2>
-<p class="zh">存算分离形态下数据本体在对象存储（OSS，按需扩容），计算节点本地盘只是缓存/工作区，因此逻辑相反：<strong>并发档位决定单 Segment 规格与其管理的数据量</strong>：</p>
-<p class="en">With compute-storage separation the data lives in object storage (OSS, scaled on demand) and local disks are cache/workspace only, so the logic inverts: <strong>the concurrency tier sets the per-segment spec and the data each segment manages</strong>:</p>
-<pre>segments = max( 2, CEIL( dataTB ÷ TB_per_segment ) )</pre>
-<div class="table-wrap"><table>
-<thead><tr>
-<th><span class="zh">档位</span><span class="en">Tier</span></th>
-<th><span class="zh">并发</span><span class="en">Concurrency</span></th>
-<th>Proxy</th><th>Segment</th><th>TB / Segment</th>
-</tr></thead>
-<tbody>
-<tr><td>Spec-1</td><td>≤10</td><td>4c/32G</td><td>4c/16G/500G</td><td>1</td></tr>
-<tr><td>Spec-2</td><td>≤20</td><td>8c/32G</td><td>8c/16G/500G</td><td>1</td></tr>
-<tr><td>Spec-3</td><td>≤30</td><td>16c/32G</td><td>8c/32G/1T</td><td>2</td></tr>
-<tr><td>Spec-4</td><td>≤40</td><td>16c/48G</td><td>16c/32G/1T</td><td>2</td></tr>
-<tr><td>Spec-5</td><td>≤80</td><td>16c/64G</td><td>16c/64G/1T</td><td>4</td></tr>
-</tbody></table></div>
-<p class="zh">固定平台组件：Meta 服务 6 实例（UnionStore ×4 + Metadata-Proxy + Storage-Broker）、WebConsole ×11 小容器、负载均衡、OSS。</p>
-<p class="en">Fixed platform components: 6 meta-service instances (UnionStore ×4 + Metadata-Proxy + Storage-Broker), WebConsole ×11 small containers, load balancer, OSS.</p>
+<p class="zh">存算分离形态下数据本体在对象存储（OSS，按需扩容），计算节点本地盘只是缓存/工作区。Segment 遵循与 MPP 路径完全相同的并发大原则：<strong>每 segment 管理 1 TB 数据，规格 = 8 vCPU / 32G × 并发系数</strong>（高级选项里的同一个并发规模选项：≤80 默认 ×1 / ≤120 ×1.5 / ≤160 ×2）。Segment 数量只由数据量决定，并发只影响单 segment 规格：</p>
+<p class="en">With compute-storage separation the data lives in object storage (OSS, scaled on demand) and local disks are cache/workspace only. Segments follow exactly the same concurrency principle as the MPP paths: <strong>each segment manages 1 TB with 8 vCPU / 32G × the concurrency factor</strong> (the same advanced-options selector: ≤80 default ×1 / ≤120 ×1.5 / ≤160 ×2). Segment count is driven by data size alone; concurrency only scales the per-segment spec:</p>
+<pre>segments    = max( 2, CEIL( dataTB ÷ 1TB ) )
+segmentSpec = (8 × f) vCPU / (32 × f) G / 500G cache</pre>
+<p class="zh">Proxy 固定 16 vCPU / 64G（覆盖 ≤80 并发）；更高并发档通过 LB 自动增加第二个 Proxy 实例。固定平台组件：Meta 服务 6 实例（UnionStore ×4 + Metadata-Proxy + Storage-Broker）、WebConsole ×11 小容器、负载均衡、OSS。</p>
+<p class="en">The proxy is fixed at 16 vCPU / 64G (covers ≤80 concurrent); higher tiers add a second proxy instance behind the LB. Fixed platform components: 6 meta-service instances (UnionStore ×4 + Metadata-Proxy + Storage-Broker), WebConsole ×11 small containers, load balancer, OSS.</p>
 
 <h2>7. <span class="zh">汇总与可承载容量</span><span class="en">Totals &amp; usable capacity</span></h2>
 <p class="zh">资源汇总 = Σ(各角色节点数 × 每节点规格)。「可承载数据量」是把最终节点数代回存储公式反推的上限——它 ≥ 你输入的数据量，差值就是本方案的自然余量。</p>

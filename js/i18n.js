@@ -21,8 +21,6 @@ export const STRINGS = {
   'nav.method':       { zh: '计算方法说明', en: 'Methodology' },
   'adv.enablecss':    { zh: '包含存算分离版本评估', en: 'Include compute-storage-separation edition' },
   'adv.enablecss.hint': { zh: '存算分离（容器/K8s）形态为基于 Cloudberry 的商业产品，默认不参与评估', en: 'The compute-storage-separation (container/K8s) form factor is a commercial product built on Cloudberry; excluded by default' },
-  'adv.enttier':      { zh: '并发档位', en: 'Concurrency tier' },
-  'enttier.label':    { zh: '（并发 ≤ {n}）', en: '(concurrency ≤ {n})' },
 
   'preset.title':     { zh: '硬件方案', en: 'Hardware preset' },
   'preset.sas_std':        { zh: '基础款 · SAS', en: 'Standard · SAS' },
@@ -85,8 +83,8 @@ export const STRINGS = {
   'note.metaproxy':        { zh: 'Metadata-Proxy ×1', en: 'Metadata-Proxy x1' },
   'note.storagebroker':    { zh: 'Storage-Broker ×1', en: 'Storage-Broker x1' },
   'note.platform':         { zh: 'Web 管理控制台，11 个容器实例', en: 'Web console, 11 container instances' },
-  'note.proxy':            { zh: '每租户一个；LB+Proxy 提供 HA；可加实例提并发', en: 'One per tenant; HA via LB+Proxy; add instances for concurrency' },
-  'note.segment.enterprise': { zh: '数据存 OSS，本地盘为缓存/工作区', en: 'Data in OSS; local disk is cache/workspace' },
+  'note.proxy':            { zh: 'LB+Proxy 提供 HA；高并发档自动增加实例', en: 'HA via LB+Proxy; higher concurrency tiers add instances' },
+  'note.segment.enterprise': { zh: '数据存 OSS，本地盘为缓存/工作区；规格随并发规模缩放（8c32G/TB@≤80）', en: 'Data in OSS; local disk is cache/workspace; spec scales with concurrency (8c32G/TB at ≤80)' },
   'note.lb':               { zh: '多 Proxy 集群入口', en: 'Entry point for multi-proxy cluster' },
 
   'summary.title':    { zh: '资源汇总', en: 'Resource summary' },

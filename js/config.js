@@ -102,13 +102,12 @@ export const CLOUD_SCHEMES = [
   },
 ];
 
-export const ENTERPRISE_TIERS = [
-  { id: 'spec1', concurrency: 10, proxy: { vcpu: 4,  memGB: 32, storageTB: 0.5 }, segment: { vcpu: 4,  memGB: 16, storageTB: 0.5 }, tbPerSegment: 1 },
-  { id: 'spec2', concurrency: 20, proxy: { vcpu: 8,  memGB: 32, storageTB: 0.5 }, segment: { vcpu: 8,  memGB: 16, storageTB: 0.5 }, tbPerSegment: 1 },
-  { id: 'spec3', concurrency: 30, proxy: { vcpu: 16, memGB: 32, storageTB: 0.5 }, segment: { vcpu: 8,  memGB: 32, storageTB: 1   }, tbPerSegment: 2 },
-  { id: 'spec4', concurrency: 40, proxy: { vcpu: 16, memGB: 48, storageTB: 0.5 }, segment: { vcpu: 16, memGB: 32, storageTB: 1   }, tbPerSegment: 2 },
-  { id: 'spec5', concurrency: 80, proxy: { vcpu: 16, memGB: 64, storageTB: 0.5 }, segment: { vcpu: 16, memGB: 64, storageTB: 1   }, tbPerSegment: 4 },
-];
+// Enterprise segments follow the same concurrency principle as MPP paths:
+// one segment per TB, 8 vCPU + 32G per segment at <=80 concurrent, scaled
+// by the shared concurrency factor. Proxy fixed at 16c/64G (covers <=80);
+// higher tiers add a second proxy instance behind the LB.
+export const ENTERPRISE_SEGMENT = { vcpuPerTB: 8, memGBPerTB: 32, tbPerSegment: 1, storageTB: 0.5 };
+export const ENTERPRISE_PROXY = { vcpu: 16, memGB: 64, storageTB: 0.5 };
 
 export const ENTERPRISE_FIXED = [
   { key: 'unionstore',    count: 4,  cpu: 16,  memGB: 32, storageTB: 0.5, cpuUnitKey: 'unit.vcpu', noteKey: 'note.unionstore' },
