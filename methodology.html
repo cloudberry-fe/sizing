@@ -93,8 +93,8 @@ storageNodes = CEIL( needTB ÷ arrayTB )      # arrayTB = usable RAID capacity p
 <td>42.2 TB</td><td>2×25GbE</td>
 </tr>
 </tbody></table></div>
-<p class="zh">NVMe 的 RAID 说明：主流 2U 机型支持 12–24 个 U.2/U.3 直连盘位；NVMe 硬件 RAID5 需三模（tri-mode）RAID 卡（如 Dell PERC H755N/H965i、Broadcom MegaRAID 9560/9600 系）或 Intel VROC。另一常见路线是 NVMe 不做 RAID（JBOD、每盘独立 XFS），冗余完全依赖 primary/mirror——吞吐更高，但单盘故障即触发 mirror 接管，本工具默认按更保守的 RAID5 计算容量。</p>
-<p class="en">NVMe RAID note: mainstream 2U servers take 12–24 direct U.2/U.3 bays; hardware NVMe RAID5 needs a tri-mode controller (Dell PERC H755N/H965i, Broadcom MegaRAID 9560/9600) or Intel VROC. JBOD with mirror-only redundancy is a common higher-throughput alternative — a single disk failure then triggers mirror takeover; this tool sizes conservatively with RAID5.</p>
+<p class="zh">NVMe 的 RAID 说明：主流 2U 机型支持 12–24 个 U.2/U.3 前置热插拔盘位（经背板直连 CPU PCIe lane，不占用 PCIe 扩展槽；12 盘 × 4 lane = 48 lane，双路 SPR 160 lane / 单路 EPYC 9004 128 lane 足够）；NVMe 硬件 RAID5 需三模（tri-mode）RAID 卡（如 Dell PERC H755N/H965i、Broadcom MegaRAID 9560/9600 系）或 Intel VROC。另一常见路线是 NVMe 不做 RAID（JBOD、每盘独立 XFS），冗余完全依赖 primary/mirror——吞吐更高，但单盘故障即触发 mirror 接管，本工具默认按更保守的 RAID5 计算容量。</p>
+<p class="en">NVMe RAID note: mainstream 2U servers take 12–24 hot-swap U.2/U.3 front bays (backplane-attached to CPU PCIe lanes, consuming no expansion slots; 12 drives × 4 lanes = 48 of the 128–160 lanes on EPYC 9004 / dual-socket SPR); hardware NVMe RAID5 needs a tri-mode controller (Dell PERC H755N/H965i, Broadcom MegaRAID 9560/9600) or Intel VROC. JBOD with mirror-only redundancy is a common higher-throughput alternative — a single disk failure then triggers mirror takeover; this tool sizes conservatively with RAID5.</p>
 <p class="zh">Coordinator 固定 2 台（主+备），同级 CPU/内存，系统盘 RAID1 + 小容量数据阵列。计算约束按整机物理核数（64C）与内存代入通用公式。</p>
 <p class="en">Coordinator is fixed at 2 (primary + standby), same CPU/memory class, RAID1 system disks + a small data array. The compute constraint uses the host's 64 physical cores and memory in the common rule.</p>
 
