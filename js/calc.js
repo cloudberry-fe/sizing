@@ -23,7 +23,7 @@ function computeNodesFor(onDiskTB, vcpu, memGB) {
   return Math.ceil(onDiskTB / perNodeTB);
 }
 
-// fin-industry 2023 method: mirror ×2, ÷0.9 OS+FS overhead, ÷0.8 keep 20% free.
+// fin-industry 2023 deck method: mirror ×2, ÷0.9 OS+FS overhead, ÷0.8 keep 20% free.
 export function physicalNeedTB(onDiskTB) {
   return onDiskTB * 2 / 0.9 / 0.8;
 }

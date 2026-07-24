@@ -33,20 +33,20 @@ test('evenUp: integers round odd up to even', () => {
   assert.equal(evenUp(18), 18);
 });
 
-// --- Physical (fin-industry 2023 method) ---
+// --- Physical (fin-industry 2023 deck method) ---
 
 test('physicalNeedTB: x2 mirror, /0.9 OS+FS, /0.8 free reserve', () => {
-  // fin-industry deck: 160TB (incl. mirror) -> 160/0.8/0.9 = 222.2; ours takes onDisk=80
+  // customer deck: 160TB (incl. mirror) -> 160/0.8/0.9 = 222.2; ours takes onDisk=80
   assert.ok(Math.abs(physicalNeedTB(80) - 222.222) < 0.01);
 });
 
-test('fin-industry regression: 160TB cr=2 sas_std -> 10 data nodes (deck says 10)', () => {
+test('Customer-deck regression: 160TB cr=2 sas_std -> 10 data nodes (deck says 10)', () => {
   const r = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'sas_std' });
   assert.equal(role(r, 'segment').count, 10);
   assert.equal(role(r, 'coordinator').count, 2);
 });
 
-test('fin-industry regression: 160TB cr=2 ssd_perf -> 12 data nodes (deck says 12)', () => {
+test('Customer-deck regression: 160TB cr=2 ssd_perf -> 12 data nodes (deck says 12)', () => {
   const r = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'ssd_perf' });
   assert.equal(role(r, 'segment').count, 12);
   assert.equal(r.binding.storageNodes, 11);
