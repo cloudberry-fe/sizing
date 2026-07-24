@@ -9,7 +9,6 @@
   .doc h2 { margin-top: 30px; border-bottom: 1px solid var(--border-soft); padding-bottom: 8px; }
   .doc h3 { font-size: 1rem; margin: 18px 0 8px; }
   .doc p, .doc li { font-size: .93rem; color: var(--fg); }
-  .doc .en { color: var(--fg); font-size: .93rem; }
   .doc pre {
     background: #fbfcfe; border: 1px solid var(--border-soft); border-radius: 10px;
     padding: 14px 16px; overflow-x: auto; font-size: .86rem; line-height: 1.6;
@@ -21,11 +20,11 @@
 <header class="site-header">
   <div class="header-inner">
     <div>
-      <h1>计算方法说明 <span style="font-weight:400;color:var(--fg-soft)">Methodology</span></h1>
-      <p class="subtitle">本工具如何估算计算资源与存储资源 · How compute and storage are estimated</p>
+      <h1><span class="zh">计算方法说明</span><span class="en">Methodology</span></h1>
+      <p class="subtitle"><span class="zh">本工具如何估算计算资源与存储资源</span><span class="en">How compute and storage resources are estimated</span></p>
     </div>
     <div class="header-actions">
-      <a href="index.html" class="nav-link">← 返回计算器 / Back</a>
+      <a href="index.html" class="nav-link">← <span class="zh">返回计算器</span><span class="en">Back to calculator</span></a>
       <button id="lang-toggle" type="button">EN</button>
     </div>
   </div>
@@ -33,84 +32,134 @@
 <main>
 <section class="card doc">
 
-<h2>1. 输入 · Inputs</h2>
+<h2>1. <span class="zh">输入</span><span class="en">Inputs</span></h2>
 <p class="zh">工具的输入是<strong>未压缩的业务数据量</strong>（GB/TB/PB）和基础设施类型。所有路径都从这两个值出发推导节点数与每节点规格。</p>
-<p class="en">Input is the uncompressed business data size plus the infrastructure type. Everything else is derived.</p>
+<p class="en">The inputs are the <strong>uncompressed business data size</strong> (GB/TB/PB) and the infrastructure type. Every path derives node counts and per-node specs from these two values.</p>
 
-<h2>2. 通用规则 · Common rules</h2>
-<h3>压缩比 Compression</h3>
+<h2>2. <span class="zh">通用规则</span><span class="en">Common rules</span></h2>
+<h3><span class="zh">压缩比</span><span class="en">Compression</span></h3>
 <p class="zh">列式存储 + 压缩后，落盘数据 ≈ 业务数据 ÷ 压缩比（默认 2，可在高级选项调整）。存算分离（容器）路径按源规范不启用压缩。</p>
-<p class="en">With columnar storage + compression, on-disk data ≈ business data ÷ compression ratio (default 2, adjustable). The container path does not apply compression, per its source spec.</p>
+<p class="en">With columnar storage + compression, on-disk data ≈ business data ÷ compression ratio (default 2, adjustable in advanced options). The container path applies no compression, per its source spec.</p>
 <pre>onDiskTB = dataTB ÷ compressionRatio</pre>
 
-<h3>计算资源约束 Compute constraint（8c32G / TB）</h3>
+<h3><span class="zh">计算资源约束</span><span class="en">Compute constraint</span> (8c32G / TB)</h3>
 <p class="zh">基线：每 1 TB 落盘数据配一个 <strong>8 vCPU + 32 GB 内存</strong>的 segment，可支撑最高约 <strong>80 并发</strong>——满足大多数数据仓库场景。依据 MPP 7.7 官方内存最佳实践：每 segment 内存最低 8GB、best practice 32GB；单查询内存 <code>statement_mem = gp_vmem_protect_limit × 0.9 ÷ 预期并发数</code>，32G × 0.9 ÷ 80 ≈ 368MB/查询，属健康区间。并发要求更高时，按该公式线性放大每 segment 资源（高级选项）：≤120 并发 ×1.5，≤160 并发 ×2。</p>
-<pre>perNodeTB    = min( vCPU ÷ (8 × f),  memGB ÷ (32 × f) )     # f = 并发系数：≤80→1（默认）/ ≤120→1.5 / ≤160→2
+<p class="en">Baseline: one <strong>8 vCPU + 32 GB</strong> segment per TB of on-disk data supports up to <strong>~80 concurrent queries</strong> — enough for most data-warehouse workloads. Grounding, from the MPP 7.7 memory best practices: 8GB minimum and 32GB best-practice per segment; per-query memory <code>statement_mem = gp_vmem_protect_limit × 0.9 ÷ expected_concurrency</code>, and 32G × 0.9 ÷ 80 ≈ 368MB per query is a healthy value. For higher concurrency the per-segment resources scale linearly (advanced options): ≤120 concurrent ×1.5, ≤160 ×2.</p>
+<pre class="zh">perNodeTB    = min( vCPU ÷ (8 × f),  memGB ÷ (32 × f) )     # f = 并发系数：≤80→1（默认）/ ≤120→1.5 / ≤160→2
 computeNodes = CEIL( onDiskTB ÷ perNodeTB )</pre>
-<p class="en">Baseline: one 8 vCPU + 32 GB segment per TB of on-disk data supports up to ~80 concurrent queries (per the best-practice statement_mem formula: 32G × 0.9 ÷ 80 ≈ 368MB per query; docs recommend 8GB minimum, 32GB best-practice per segment). Higher concurrency scales per-segment resources linearly.</p>
+<pre class="en">perNodeTB    = min( vCPU ÷ (8 × f),  memGB ÷ (32 × f) )     # f = concurrency factor: ≤80→1 (default) / ≤120→1.5 / ≤160→2
+computeNodes = CEIL( onDiskTB ÷ perNodeTB )</pre>
 
-<h3>最终节点数 Final node count</h3>
+<h3><span class="zh">最终节点数</span><span class="en">Final node count</span></h3>
 <p class="zh">存储与计算两个维度分别算出所需节点数，取<strong>较大者</strong>，再向上取偶数（MPP 习惯，便于 primary/mirror 对称分布）。结果页的徽标会标明是存储受限还是计算受限。</p>
-<p class="en">Storage and compute node counts are derived independently; the larger wins, then rounded up to an even number (MPP convention for symmetric primary/mirror placement). The result badge shows which constraint binds.</p>
+<p class="en">Storage-driven and compute-driven node counts are derived independently; the <strong>larger</strong> wins, then rounds up to an even number (MPP convention for symmetric primary/mirror placement). The result badge shows which constraint binds.</p>
 <pre>nodes = roundUpToEven( max( storageNodes, computeNodes ) )</pre>
 
-<h2>3. 物理机 · Physical (Cloudberry MPP)</h2>
+<h2>3. <span class="zh">物理机</span><span class="en">Physical</span> · Cloudberry MPP</h2>
 <p class="zh">存储侧按金融行业生产集群实践（2023）的方法：数据存两份（primary + mirror），操作系统与文件系统占标称容量约 10%，并保留 20% 空闲空间：</p>
-<pre>needTB       = onDiskTB × 2 ÷ 0.9 ÷ 0.8
+<p class="en">Storage follows a financial-industry production method (2023): data stored twice (primary + mirror), ~10% of nominal capacity consumed by OS and filesystem, and 20% kept free:</p>
+<pre class="zh">needTB       = onDiskTB × 2 ÷ 0.9 ÷ 0.8
 storageNodes = CEIL( needTB ÷ arrayTB )      # arrayTB = 单节点 RAID 后可用容量</pre>
+<pre class="en">needTB       = onDiskTB × 2 ÷ 0.9 ÷ 0.8
+storageNodes = CEIL( needTB ÷ arrayTB )      # arrayTB = usable RAID capacity per node</pre>
 <p class="zh">三档硬件预设（arrayTB 取 RAID5 后可用盘数 × 单盘容量）：</p>
+<p class="en">Three hardware presets (arrayTB = usable disks after RAID5 × disk size):</p>
 <div class="table-wrap"><table>
-<thead><tr><th>预设 Preset</th><th>CPU / MEM</th><th>数据盘 Data disks</th><th>RAID</th><th>单节点可用 Usable/node</th><th>网卡 NIC</th></tr></thead>
+<thead><tr>
+<th><span class="zh">预设</span><span class="en">Preset</span></th>
+<th>CPU / MEM</th>
+<th><span class="zh">数据盘</span><span class="en">Data disks</span></th>
+<th>RAID</th>
+<th><span class="zh">单节点可用</span><span class="en">Usable/node</span></th>
+<th><span class="zh">网卡</span><span class="en">NIC</span></th>
+</tr></thead>
 <tbody>
-<tr><td>基础款 · SAS</td><td>2×32C / 512G</td><td>24 × 1.2TB 10K SAS</td><td>每 12 盘一组 RAID5 ×2（22 盘可用）</td><td>26.4 TB</td><td>2×10GbE</td></tr>
-<tr><td>高吞吐款 · SSD</td><td>2×32C / 1024G</td><td>24 × 960GB SSD</td><td>同上</td><td>21.1 TB</td><td>2×10GbE/25GbE</td></tr>
-<tr><td>现代款 · NVMe</td><td>2×32C / 1024G DDR5</td><td>12 × 3.84TB NVMe U.2</td><td>RAID5（11 盘可用，需三模 RAID 卡或 VROC）</td><td>42.2 TB</td><td>2×25GbE</td></tr>
+<tr>
+<td><span class="zh">基础款 · SAS</span><span class="en">Standard · SAS</span></td>
+<td>2×32C / 512G</td><td>24 × 1.2TB 10K SAS</td>
+<td><span class="zh">每 12 盘一组 RAID5 ×2（22 盘可用）</span><span class="en">2 × RAID5 groups of 12 (22 usable)</span></td>
+<td>26.4 TB</td><td>2×10GbE</td>
+</tr>
+<tr>
+<td><span class="zh">高吞吐款 · SSD</span><span class="en">High-throughput · SSD</span></td>
+<td>2×32C / 1024G</td><td>24 × 960GB SSD</td>
+<td><span class="zh">同上</span><span class="en">same</span></td>
+<td>21.1 TB</td><td>2×10GbE/25GbE</td>
+</tr>
+<tr>
+<td><span class="zh">现代款 · NVMe</span><span class="en">Modern · NVMe</span></td>
+<td>2×32C / 1024G DDR5</td><td>12 × 3.84TB NVMe U.2</td>
+<td><span class="zh">RAID5（11 盘可用，需三模 RAID 卡或 VROC）</span><span class="en">RAID5 (11 usable; tri-mode RAID or VROC)</span></td>
+<td>42.2 TB</td><td>2×25GbE</td>
+</tr>
 </tbody></table></div>
 <p class="zh">NVMe 的 RAID 说明：主流 2U 机型支持 12–24 个 U.2/U.3 直连盘位；NVMe 硬件 RAID5 需三模（tri-mode）RAID 卡（如 Dell PERC H755N/H965i、Broadcom MegaRAID 9560/9600 系）或 Intel VROC。另一常见路线是 NVMe 不做 RAID（JBOD、每盘独立 XFS），冗余完全依赖 primary/mirror——吞吐更高，但单盘故障即触发 mirror 接管，本工具默认按更保守的 RAID5 计算容量。</p>
-<p class="en">NVMe RAID note: mainstream 2U servers take 12–24 direct U.2/U.3 bays; hardware NVMe RAID5 needs a tri-mode controller (Dell PERC H755N/H965i, Broadcom MegaRAID 9560/9600) or Intel VROC. JBOD with mirror-only redundancy is a common higher-throughput alternative; this tool sizes conservatively with RAID5.</p>
+<p class="en">NVMe RAID note: mainstream 2U servers take 12–24 direct U.2/U.3 bays; hardware NVMe RAID5 needs a tri-mode controller (Dell PERC H755N/H965i, Broadcom MegaRAID 9560/9600) or Intel VROC. JBOD with mirror-only redundancy is a common higher-throughput alternative — a single disk failure then triggers mirror takeover; this tool sizes conservatively with RAID5.</p>
 <p class="zh">Coordinator 固定 2 台（主+备），同级 CPU/内存，系统盘 RAID1 + 小容量数据阵列。计算约束按整机物理核数（64C）与内存代入通用公式。</p>
-<p class="en">Storage: data ×2 (mirror), ÷0.9 OS/FS overhead, ÷0.8 to keep 20% free, divided by the per-node usable RAID capacity. Compute uses the common rule with 64 physical cores per node. Coordinator ×2 fixed.</p>
+<p class="en">Coordinator is fixed at 2 (primary + standby), same CPU/memory class, RAID1 system disks + a small data array. The compute constraint uses the host's 64 physical cores and memory in the common rule.</p>
 
-<h3>每主机段布局 Segments per host</h3>
+<h3><span class="zh">每主机段布局</span><span class="en">Segments per host</span></h3>
 <p class="zh">每台主机部署的 primary 数 = 主机资源 ÷ 单 segment 配额（8c/32G × 并发系数），CPU 与内存取较小者；mirror 与 primary 同数量，用 spread mirroring 打散到其他主机（结果页按 <code>N primary + N mirror</code> 展示，并给出每 primary 实际管理的数据量）。例：物理机 64 核/512G → <strong>8 primary + 8 mirror</strong>；虚拟机/云主机 8–24 vCPU → 1–3 primary，与 MPP 官方虚拟化建议（每 VM 1–4 个 segment 实例）一致。</p>
+<p class="en">Primaries per host = host resources ÷ per-segment quota (8c/32G × f), the tighter of CPU and memory; mirrors equal primaries, spread across other hosts (the result page shows <code>N primary + N mirror</code> plus the actual data per primary). Example: a 64-core/512G physical host → <strong>8 primary + 8 mirror</strong>; VM/cloud nodes at 8–24 vCPU → 1–3 primaries, matching the official 1–4 segments-per-VM guidance.</p>
 <p class="zh">MPP 7.7 文档指出每主机 segment 数需综合：核数、内存、网卡数、存储容量、primary/mirror 混布、主机上的 ETL 及其他进程。相关内存参数按官方公式配置：</p>
-<pre>gp_vmem（≥256G 主机）      = ((SWAP + RAM) − (7.5GB + 0.05 × RAM)) ÷ 1.17
+<p class="en">The MPP 7.7 docs list the factors for segments per host: cores, RAM, NICs, attached storage, the primary/mirror mixture, and ETL or other processes on the host. Memory parameters follow the official formulas:</p>
+<pre class="zh">gp_vmem（≥256G 主机）      = ((SWAP + RAM) − (7.5GB + 0.05 × RAM)) ÷ 1.17
 gp_vmem_protect_limit      = gp_vmem ÷ max_acting_primary_segments
 statement_mem              = gp_vmem_protect_limit × 0.9 ÷ 预期并发数</pre>
-<p class="en">Primaries per host = host resources ÷ per-segment quota (8c/32G × f), the tighter of CPU and memory; mirrors equal primaries, spread across other hosts. Physical 64c/512G → 8P+8M; VM/cloud 8–24 vCPU → 1–3 primaries, matching the official 1–4 segments-per-VM guidance. Memory parameters follow the official gp_vmem / gp_vmem_protect_limit / statement_mem formulas above.</p>
+<pre class="en">gp_vmem (host ≥256G)       = ((SWAP + RAM) − (7.5GB + 0.05 × RAM)) ÷ 1.17
+gp_vmem_protect_limit      = gp_vmem ÷ max_acting_primary_segments
+statement_mem              = gp_vmem_protect_limit × 0.9 ÷ expected_concurrency</pre>
 
-<h2>4. 虚拟机 · VM (Cloudberry MPP)</h2>
+<h2>4. <span class="zh">虚拟机</span><span class="en">VM</span> · Cloudberry MPP</h2>
 <p class="zh">单节点可用容量在数据盘标称容量上打三重折扣：70% 水位、÷2 镜像、再留 1/3 工作空间：</p>
-<pre>usableTB     = storageTB × 0.7 ÷ (2 + 1/3)      ≈ storageTB × 0.3
+<p class="en">Per-node usable capacity applies three discounts to nominal disk capacity: 70% watermark, ÷2 mirror, plus 1/3 workspace:</p>
+<pre class="zh">usableTB     = storageTB × 0.7 ÷ (2 + 1/3)      ≈ storageTB × 0.3
 storageNodes = evenUp( TRUNC( onDiskTB ÷ usableTB ) + 2 )   # +2 为保底余量</pre>
+<pre class="en">usableTB     = storageTB × 0.7 ÷ (2 + 1/3)      ≈ storageTB × 0.3
+storageNodes = evenUp( TRUNC( onDiskTB ÷ usableTB ) + 2 )   # +2 headroom</pre>
 <p class="zh">三档虚拟机规格，按数据量自动推荐（可手动覆盖）：</p>
+<p class="en">Three VM profiles, auto-recommended by data size (manual override available):</p>
 <div class="table-wrap"><table>
-<thead><tr><th>规格 Profile</th><th>适用 Fits</th><th>vCPU / 内存 / 数据盘</th><th>盘吞吐 Throughput</th><th>宿主机要求 Host</th></tr></thead>
+<thead><tr>
+<th><span class="zh">规格</span><span class="en">Profile</span></th>
+<th><span class="zh">适用</span><span class="en">Fits</span></th>
+<th>vCPU / MEM / Disk</th>
+<th><span class="zh">盘吞吐</span><span class="en">Throughput</span></th>
+<th><span class="zh">宿主机要求</span><span class="en">Host</span></th>
+</tr></thead>
 <tbody>
-<tr><td>Lite</td><td>≤5 TB</td><td>8 / 64G / 2T SSD</td><td>≥500 MB/s</td><td>可共享宿主机</td></tr>
-<tr><td>Medium</td><td>≤50 TB</td><td>16 / 128G / 4T SSD</td><td>≥1000 MB/s</td><td>CPU 超配 ≤1:2</td></tr>
-<tr><td>Large</td><td>&gt;50 TB</td><td>24 / 256G / 8T SSD</td><td>≥1500 MB/s</td><td>独占宿主机，1:1 物理资源</td></tr>
+<tr><td>Lite</td><td>≤5 TB</td><td>8 / 64G / 2T SSD</td><td>≥500 MB/s</td>
+<td><span class="zh">可共享宿主机</span><span class="en">Shared host OK</span></td></tr>
+<tr><td>Medium</td><td>≤50 TB</td><td>16 / 128G / 4T SSD</td><td>≥1000 MB/s</td>
+<td><span class="zh">CPU 超配 ≤1:2</span><span class="en">CPU overcommit ≤1:2</span></td></tr>
+<tr><td>Large</td><td>&gt;50 TB</td><td>24 / 256G / 8T SSD</td><td>≥1500 MB/s</td>
+<td><span class="zh">独占宿主机，1:1 物理资源</span><span class="en">Dedicated host, 1:1 physical</span></td></tr>
 </tbody></table></div>
-<p class="en">Per-node usable ≈ 30% of nominal disk (0.7 watermark, ÷2 mirror, +1/3 workspace). Profile auto-selected by data size; override in advanced options.</p>
 
-<h2>5. 云主机 · Cloud (Cloudberry MPP)</h2>
+<h2>5. <span class="zh">云主机</span><span class="en">Cloud</span> · Cloudberry MPP</h2>
 <p class="zh">节点数公式与虚拟机相同，单节点存储取所选云方案的数据盘容量。每个云厂商提供两套方案：</p>
+<p class="en">Same node-count formula as VM, with per-node storage from the selected cloud scheme. Two schemes per provider:</p>
 <ul class="zh">
 <li><strong>云盘方案</strong>（来源：MPP 7.7 官方 Cloud Technical Recommendations）：AWS r5.4xlarge + 3×EBS ST1/GP3；Azure Standard_E16s_v5 + 3×P40 Premium SSD；GCP n2-highmem-8 + pd-ssd。数据可靠性依赖云盘，支持快照。</li>
 <li><strong>本地盘方案</strong>（生产部署实践）：AWS i3en.2xlarge、Azure Standard_L8s_v3、GCP c3d-standard-8-lssd 本地 NVMe。吞吐更高、成本更低，可靠性依赖 primary/mirror 双副本。</li>
 </ul>
-<p class="zh">附加建议：Azure 使用 UDP interconnect 并预留端口 65330；GCP 官方建议用更多的小节点（相对 AWS）。</p>
 <ul class="en">
 <li><strong>Managed-disk schemes</strong> (MPP 7.7 official Cloud Technical Recommendations): AWS r5.4xlarge + 3×EBS ST1/GP3; Azure Standard_E16s_v5 + 3×P40 Premium SSD; GCP n2-highmem-8 + pd-ssd. Durability from cloud disks, snapshot-capable.</li>
 <li><strong>Local-NVMe schemes</strong> (production practice): AWS i3en.2xlarge, Azure Standard_L8s_v3, GCP c3d-standard-8-lssd. Higher throughput, lower cost; durability relies on primary/mirror.</li>
 </ul>
-<p class="en">Extra guidance: use the UDP interconnect and reserve port 65330 on Azure; prefer more, smaller nodes on GCP. Same node-count formula as VM, with per-scheme disk capacity.</p>
+<p class="zh">附加建议：Azure 使用 UDP interconnect 并预留端口 65330；GCP 官方建议用更多的小节点（相对 AWS）。</p>
+<p class="en">Extra guidance: on Azure use the UDP interconnect and reserve port 65330; on GCP prefer more, smaller nodes (vs AWS).</p>
 
-<h2>6. 容器 / K8s · Compute-storage separation</h2>
+<h2>6. <span class="zh">容器 / K8s · 存算分离</span><span class="en">Container / K8s · Compute-storage separation</span></h2>
 <p class="zh">存算分离形态下数据本体在对象存储（OSS，按需扩容），计算节点本地盘只是缓存/工作区，因此逻辑相反：<strong>并发档位决定单 Segment 规格与其管理的数据量</strong>：</p>
+<p class="en">With compute-storage separation the data lives in object storage (OSS, scaled on demand) and local disks are cache/workspace only, so the logic inverts: <strong>the concurrency tier sets the per-segment spec and the data each segment manages</strong>:</p>
 <pre>segments = max( 2, CEIL( dataTB ÷ TB_per_segment ) )</pre>
 <div class="table-wrap"><table>
-<thead><tr><th>档位 Tier</th><th>并发 Concurrency</th><th>Proxy</th><th>Segment</th><th>TB / Segment</th></tr></thead>
+<thead><tr>
+<th><span class="zh">档位</span><span class="en">Tier</span></th>
+<th><span class="zh">并发</span><span class="en">Concurrency</span></th>
+<th>Proxy</th><th>Segment</th><th>TB / Segment</th>
+</tr></thead>
 <tbody>
 <tr><td>Spec-1</td><td>≤10</td><td>4c/32G</td><td>4c/16G/500G</td><td>1</td></tr>
 <tr><td>Spec-2</td><td>≤20</td><td>8c/32G</td><td>8c/16G/500G</td><td>1</td></tr>
@@ -119,13 +168,15 @@ storageNodes = evenUp( TRUNC( onDiskTB ÷ usableTB ) + 2 )   # +2 为保底余�
 <tr><td>Spec-5</td><td>≤80</td><td>16c/64G</td><td>16c/64G/1T</td><td>4</td></tr>
 </tbody></table></div>
 <p class="zh">固定平台组件：Meta 服务 6 实例（UnionStore ×4 + Metadata-Proxy + Storage-Broker）、WebConsole ×11 小容器、负载均衡、OSS。</p>
-<p class="en">Data lives in OSS; the concurrency tier sets per-segment size and TB-per-segment. Fixed platform components (meta services, console, LB) are added on top.</p>
+<p class="en">Fixed platform components: 6 meta-service instances (UnionStore ×4 + Metadata-Proxy + Storage-Broker), WebConsole ×11 small containers, load balancer, OSS.</p>
 
-<h2>7. 汇总与可承载容量 · Totals</h2>
+<h2>7. <span class="zh">汇总与可承载容量</span><span class="en">Totals &amp; usable capacity</span></h2>
 <p class="zh">资源汇总 = Σ(各角色节点数 × 每节点规格)。「可承载数据量」是把最终节点数代回存储公式反推的上限——它 ≥ 你输入的数据量，差值就是本方案的自然余量。</p>
-<pre>capacityTB(物理机) = nodes × arrayTB × 0.9 × 0.8 ÷ 2 × compressionRatio
+<p class="en">Totals sum count × per-node spec across roles. "Usable data capacity" inverts the storage formula at the final node count — it is ≥ your input, and the difference is the recommendation's natural headroom.</p>
+<pre class="zh">capacityTB(物理机) = nodes × arrayTB × 0.9 × 0.8 ÷ 2 × compressionRatio
 capacityTB(VM/云)  = nodes × usableTB × compressionRatio</pre>
-<p class="en">Totals sum count × per-node spec across roles. "Usable data capacity" inverts the storage formula at the final node count — the headroom of the recommendation.</p>
+<pre class="en">capacityTB(physical) = nodes × arrayTB × 0.9 × 0.8 ÷ 2 × compressionRatio
+capacityTB(VM/cloud) = nodes × usableTB × compressionRatio</pre>
 
 <p style="margin-top:26px" class="zh">⚠ 所有结果为估算值，实际配置请以 POC 验证为准。</p>
 <p style="margin-top:26px" class="en">⚠ All results are estimates; validate with a POC before final sizing.</p>
@@ -138,6 +189,7 @@ capacityTB(VM/云)  = nodes × usableTB × compressionRatio</pre>
   const btn = document.getElementById('lang-toggle');
   function apply() {
     document.documentElement.lang = lang;
+    document.title = lang === 'zh' ? '计算方法说明 · Cloudberry Family Sizing' : 'Methodology · Cloudberry Family Sizing';
     document.querySelectorAll('.zh').forEach(e => { e.hidden = lang !== 'zh'; });
     document.querySelectorAll('.en').forEach(e => { e.hidden = lang !== 'en'; });
     btn.textContent = lang === 'zh' ? 'EN' : '中';
