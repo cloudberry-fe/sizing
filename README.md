@@ -1,6 +1,7 @@
 # sizing
 
-Sizing calculator for HashData Lightning / HashData Enterprise (Cloudberry-based products).
+Sizing calculator for the Cloudberry-based product family (classic MPP and
+compute-storage-separation form factors).
 Static page — input data size + infrastructure type (physical / VM / cloud / container),
 get node counts, per-node specs, and a resource summary. zh/en.
 

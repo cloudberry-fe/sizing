@@ -1,6 +1,6 @@
 // js/i18n.js
 export const STRINGS = {
-  'title':            { zh: 'HashData 容量规划工具', en: 'HashData Sizing Calculator' },
+  'title':            { zh: 'Cloudberry 系产品容量规划工具', en: 'Cloudberry Family Sizing Calculator' },
   'subtitle':         { zh: '输入数据量与基础设施类型，获取推荐硬件配置', en: 'Enter data size and infrastructure type to get a recommended hardware configuration' },
   'input.datasize':   { zh: '数据量（未压缩业务数据）', en: 'Data size (uncompressed business data)' },
   'input.infra':      { zh: '基础设施类型', en: 'Infrastructure type' },
@@ -8,10 +8,10 @@ export const STRINGS = {
   'infra.vm':         { zh: '虚拟机', en: 'VM' },
   'infra.cloud':      { zh: '云主机', en: 'Cloud' },
   'infra.container':  { zh: '容器 / K8s', en: 'Container / K8s' },
-  'product.physical': { zh: 'HashData Lightning · 物理机部署', en: 'HashData Lightning · bare metal' },
-  'product.vm':       { zh: 'HashData Lightning · 虚拟机部署', en: 'HashData Lightning · VM' },
-  'product.cloud':    { zh: 'HashData Lightning · 云主机部署', en: 'HashData Lightning · cloud' },
-  'product.container':{ zh: 'HashData Enterprise · 存算分离', en: 'HashData Enterprise · compute-storage separation' },
+  'product.physical': { zh: 'Cloudberry MPP · 物理机部署', en: 'Cloudberry MPP · bare metal' },
+  'product.vm':       { zh: 'Cloudberry MPP · 虚拟机部署', en: 'Cloudberry MPP · VM' },
+  'product.cloud':    { zh: 'Cloudberry MPP · 云主机部署', en: 'Cloudberry MPP · cloud' },
+  'product.container':{ zh: 'Cloudberry 存算分离 · 容器/K8s', en: 'Cloudberry compute-storage separation · container/K8s' },
   'advanced':         { zh: '高级选项', en: 'Advanced options' },
   'adv.compression':  { zh: '压缩比', en: 'Compression ratio' },
   'adv.enttier':      { zh: '并发档位', en: 'Concurrency tier' },

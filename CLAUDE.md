@@ -10,7 +10,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-Static sizing calculator for HashData Lightning / Enterprise. Zero-build vanilla JS (ES modules):
+Static sizing calculator for the Cloudberry-based product family (classic MPP + compute-storage
+separation). Brand-neutral UI ("Cloudberry Family") — source citations may still name vendor docs.
+Zero-build vanilla JS (ES modules):
 
 - `js/config.js` — ALL sizing rule data: `PHYSICAL_PRESETS` (fin-industry基础款/高吞吐款/NVMe现代款,
   full BOM per node), `VM_PROFILES` (Lite/Medium/Large), `CLOUD_SCHEMES` (per provider:
