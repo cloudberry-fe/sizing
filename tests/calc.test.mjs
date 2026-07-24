@@ -122,3 +122,29 @@ test('summarize totals count*spec and skips nulls', () => {
   ]);
   assert.deepEqual(s, { nodes: 3, cpu: 16, memGB: 64, storageTB: 4 });
 });
+
+test('physical 200TB cr=2 ssd192x24: capacityTB matches segNodes * usable * compressionRatio', () => {
+  const r = calcPhysical({ dataTB: 200, compressionRatio: 2, tierId: 'ssd192x24' });
+  // segNodes = 20 (compute-bound, see earlier test); usable = 13.0225
+  assert.ok(Math.abs(r.capacityTB - 20 * 13.0225 * 2) < 0.1);
+});
+
+test('tie-break: storageNodes === computeNodes resolves to type "storage" ' +
+     '(physical hdd12x24, dataTB=6, cr=1: storage EVEN(ROUND(6/8.181))=2, compute CEIL(6/5)=2)', () => {
+  const r = calcPhysical({ dataTB: 6, compressionRatio: 1, tierId: 'hdd12x24' });
+  assert.equal(r.binding.storageNodes, 2);
+  assert.equal(r.binding.computeNodes, 2);
+  assert.equal(r.binding.type, 'storage');
+});
+
+test('role cpuUnitKey is role-shape driven: physical cores vs vm/enterprise vCPU', () => {
+  const phys = calcPhysical({ dataTB: 200, compressionRatio: 2, tierId: 'ssd192x24' });
+  assert.equal(phys.roles.find(x => x.key === 'segment').cpuUnitKey, 'unit.cores');
+
+  const vm = calcVM({ dataTB: 10, compressionRatio: 1 });
+  assert.equal(vm.roles.find(x => x.key === 'datanode').cpuUnitKey, 'unit.vcpu');
+
+  const ent = calcEnterprise({ dataTB: 1000, tierId: 'spec1' });
+  assert.equal(ent.roles.find(x => x.key === 'segment').cpuUnitKey, 'unit.vcpu');
+  assert.equal(ent.roles.find(x => x.key === 'unionstore').cpuUnitKey, 'unit.vcpu');
+});

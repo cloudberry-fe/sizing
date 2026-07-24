@@ -32,10 +32,10 @@ export const ENTERPRISE_TIERS = [
 ];
 
 export const ENTERPRISE_FIXED = [
-  { key: 'unionstore',    count: 4,  cpu: 16,  memGB: 32, storageTB: 0.5, noteKey: 'note.unionstore' },
-  { key: 'metaproxy',     count: 1,  cpu: 2,   memGB: 4,  storageTB: 0.1, noteKey: 'note.metaproxy' },
-  { key: 'storagebroker', count: 1,  cpu: 1,   memGB: 2,  storageTB: null, noteKey: 'note.storagebroker' },
-  { key: 'platform',      count: 11, cpu: 0.5, memGB: 1,  storageTB: null, noteKey: 'note.platform' },
+  { key: 'unionstore',    count: 4,  cpu: 16,  memGB: 32, storageTB: 0.5, cpuUnitKey: 'unit.vcpu', noteKey: 'note.unionstore' },
+  { key: 'metaproxy',     count: 1,  cpu: 2,   memGB: 4,  storageTB: 0.1, cpuUnitKey: 'unit.vcpu', noteKey: 'note.metaproxy' },
+  { key: 'storagebroker', count: 1,  cpu: 1,   memGB: 2,  storageTB: null, cpuUnitKey: 'unit.vcpu', noteKey: 'note.storagebroker' },
+  { key: 'platform',      count: 11, cpu: 0.5, memGB: 1,  storageTB: null, cpuUnitKey: 'unit.vcpu', noteKey: 'note.platform' },
   { key: 'oss',           count: 1,  cpu: null, memGB: null, storageTB: null, noteKey: 'note.oss' },
   { key: 'lb',            count: 1,  cpu: null, memGB: null, storageTB: null, noteKey: 'note.lb' },
 ];

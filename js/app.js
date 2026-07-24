@@ -2,8 +2,16 @@ import { toTB, calcPhysical, calcVM, calcCloud, calcEnterprise, summarize } from
 import { PHYSICAL_TIERS, CLOUD, ENTERPRISE_TIERS } from './config.js';
 import { t } from './i18n.js';
 
+function readStoredLang() {
+  try {
+    return localStorage.getItem('lang') || 'zh';
+  } catch {
+    return 'zh';
+  }
+}
+
 const state = {
-  lang: localStorage.getItem('lang') || 'zh',
+  lang: readStoredLang(),
   infra: 'physical',
 };
 
@@ -11,31 +19,41 @@ const $ = id => document.getElementById(id);
 
 function fmt(key, vars) {
   let s = t(key, state.lang);
-  for (const [k, v] of Object.entries(vars || {})) s = s.replace(`{${k}}`, v);
+  for (const [k, v] of Object.entries(vars || {})) s = s.replaceAll(`{${k}}`, v);
   return s;
 }
 
-function populateSelects() {
+function fmtNum(n) {
+  const s = n.toFixed(1);
+  return s.endsWith('.0') ? s.slice(0, -2) : s;
+}
+
+function populateStaticSelects() {
   $('phys-tier').innerHTML = PHYSICAL_TIERS
     .map(x => `<option value="${x.id}"${x.id === 'ssd192x24' ? ' selected' : ''}>${x.label}</option>`).join('');
   $('cloud-provider').innerHTML = Object.entries(CLOUD)
     .map(([id, c]) => `<option value="${id}">${id.startsWith('aws') ? 'AWS' : id === 'azure' ? 'Azure' : 'GCP'} — ${c.instance}</option>`).join('');
+}
+
+function populateEntTier() {
+  const prev = $('ent-tier').value;
   $('ent-tier').innerHTML = ENTERPRISE_TIERS
     .map(x => `<option value="${x.id}">Spec-${x.id.slice(4)} ${fmt('enttier.label', { n: x.concurrency })}</option>`).join('');
+  if (prev) $('ent-tier').value = prev;
 }
 
 function applyLang() {
   document.documentElement.lang = state.lang;
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n, state.lang); });
   $('lang-toggle').textContent = state.lang === 'zh' ? 'EN' : '中';
-  populateSelects();
+  populateEntTier();
 }
 
 function specText(r) {
   if (r.cpu == null) return r.instance || '—';
-  const cpu = `${r.cpu} vCPU`;
+  const cpu = `${r.cpu} ${t(r.cpuUnitKey, state.lang)}`;
   const mem = `${r.memGB}G`;
-  const st = r.storageTB == null ? '' : ` / ${r.storageTB >= 1 ? r.storageTB + 'T' : r.storageTB * 1024 + 'G'}`;
+  const st = r.storageTB == null ? '' : ` / ${r.storageTB >= 1 ? fmtNum(r.storageTB) + 'T' : fmtNum(r.storageTB * 1024) + 'G'}`;
   const inst = r.instance ? ` (${r.instance})` : '';
   return `${cpu} / ${mem}${st}${inst}`;
 }
@@ -59,7 +77,7 @@ function compute() {
   $('product-line').textContent = t(`product.${state.infra}`, state.lang);
   $('network-line').textContent = state.infra === 'cloud'
     ? `${t('network.label', state.lang)}: ${CLOUD[$('cloud-provider').value].network}`
-    : t('network.10g', state.lang);
+    : state.infra === 'container' ? '' : t('network.10g', state.lang);
 
   const badge = $('binding-badge');
   if (r.binding) {
@@ -100,7 +118,7 @@ $('infra-tabs').addEventListener('click', e => {
 
 $('lang-toggle').addEventListener('click', () => {
   state.lang = state.lang === 'zh' ? 'en' : 'zh';
-  localStorage.setItem('lang', state.lang);
+  try { localStorage.setItem('lang', state.lang); } catch {}
   applyLang();
   compute();
 });
@@ -108,6 +126,7 @@ $('lang-toggle').addEventListener('click', () => {
 ['data-size', 'data-unit', 'compression', 'phys-tier', 'cloud-provider', 'ent-tier']
   .forEach(id => $(id).addEventListener('input', compute));
 
+populateStaticSelects();
 applyLang();
 showAdvancedFor(state.infra);
 compute();

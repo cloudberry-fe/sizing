@@ -39,9 +39,9 @@ export function calcPhysical({ dataTB, compressionRatio, tierId }) {
     product: 'lightning',
     roles: [
       { key: 'coordinator', count: 2, cpu: PHYSICAL_NODE.cores, memGB: PHYSICAL_NODE.memGB,
-        storageTB: PHYSICAL_NODE.coordStorageTB, noteKey: 'note.coord.physical' },
+        storageTB: PHYSICAL_NODE.coordStorageTB, cpuUnitKey: 'unit.cores', noteKey: 'note.coord.physical' },
       { key: 'segment', count: segNodes, cpu: PHYSICAL_NODE.cores, memGB: PHYSICAL_NODE.memGB,
-        storageTB: tierStorageTB, noteKey: 'note.segment.physical' },
+        storageTB: tierStorageTB, cpuUnitKey: 'unit.cores', noteKey: 'note.segment.physical' },
     ],
     binding: { type: computeNodes > storageNodes ? 'compute' : 'storage', storageNodes, computeNodes },
     capacityTB: segNodes * usable * compressionRatio,
@@ -62,9 +62,9 @@ function lightningVMResult({ dataTB, compressionRatio, node, instance, extraRole
     product: 'lightning',
     roles: [
       { key: 'coordinator', count: 2, cpu: node.vcpu, memGB: node.memGB,
-        storageTB: VM_NODE.coordStorageTB, instance, noteKey: 'note.coord.vm' },
+        storageTB: VM_NODE.coordStorageTB, instance, cpuUnitKey: 'unit.vcpu', noteKey: 'note.coord.vm' },
       { key: 'datanode', count: dataNodes, cpu: node.vcpu, memGB: node.memGB,
-        storageTB: node.storageTB, instance, noteKey: 'note.datanode.vm' },
+        storageTB: node.storageTB, instance, cpuUnitKey: 'unit.vcpu', noteKey: 'note.datanode.vm' },
       ...(extraRoles || []),
     ],
     binding: { type: computeNodes > storageNodes ? 'compute' : 'storage', storageNodes, computeNodes },
@@ -101,7 +101,7 @@ export function calcEnterprise({ dataTB, tierId }) {
 }
 
 function toRoleSpec(s) {
-  return { cpu: s.vcpu, memGB: s.memGB, storageTB: s.storageTB };
+  return { cpu: s.vcpu, memGB: s.memGB, storageTB: s.storageTB, cpuUnitKey: 'unit.vcpu' };
 }
 
 export function summarize(roles) {

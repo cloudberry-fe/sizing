@@ -57,6 +57,8 @@ export const STRINGS = {
   'disclaimer':       { zh: '结果为估算值，实际配置请以 POC 验证为准。', en: 'Estimates only. Validate with a POC before final sizing.' },
   'network.label':    { zh: '网络', en: 'Network' },
   'network.10g':      { zh: '网络：万兆以太网', en: 'Network: 10Gbps Ethernet' },
+  'unit.vcpu':        { zh: 'vCPU', en: 'vCPU' },
+  'unit.cores':       { zh: '核', en: 'cores' },
 };
 
 export function t(key, lang) {
