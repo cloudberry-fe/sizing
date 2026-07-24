@@ -203,3 +203,26 @@ test('concurrency factor on vm path (mid=1.5)', () => {
   assert.equal(r.binding.computeNodes, 15); // ceil(10 / min(8/12, 64/48))
   assert.equal(r.binding.storageNodes, 18); // unchanged, still storage-bound
 });
+
+test('segment layout: 8P+8M per physical host at standard concurrency', () => {
+  const r = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'sas_std' });
+  assert.deepEqual(r.layout, { primaries: 8, mirrors: 8 });
+  // 10 nodes × 8 primaries = 80 primaries for 80TB on-disk ≈ 1TB each
+  const seg = r.roles.find(x => x.key === 'segment');
+  const perSeg = seg.bom.find(b => b.labelKey === 'bom.perseg');
+  assert.equal(perSeg.value, '≈ 1.0 TB');
+  assert.ok(seg.bom.some(b => b.labelKey === 'bom.layout' && b.value === '8 primary + 8 mirror'));
+});
+
+test('segment layout scales down with concurrency factor', () => {
+  const r = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'sas_std', concurrencyFactor: 2 });
+  assert.deepEqual(r.layout, { primaries: 4, mirrors: 4 }); // min(64/16, 512/64)
+});
+
+test('segment layout on vm/cloud matches GP 1-4 per VM guidance', () => {
+  assert.equal(calcVM({ dataTB: 10, compressionRatio: 2, profileId: 'lite' }).layout.primaries, 1);
+  assert.equal(calcVM({ dataTB: 30, compressionRatio: 2, profileId: 'medium' }).layout.primaries, 2);
+  assert.equal(calcVM({ dataTB: 100, compressionRatio: 2, profileId: 'large' }).layout.primaries, 3);
+  assert.equal(calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'aws_ebs' }).layout.primaries, 2);
+  assert.equal(calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'azure_local' }).layout.primaries, 1);
+});

@@ -1,12 +1,14 @@
 // All tunable sizing data. Formula-structural constants live in calc.js.
 export const COMPUTE_RULE = { vcpuPerTB: 8, memGBPerTB: 32 };
 
-// Lightning-path concurrency levels: factor scales the compute rule
-// (8c/32G per TB assumes <=10 concurrent queries). Storage math unaffected.
+// Lightning-path concurrency levels. Baseline: one 8c/32G segment per TB
+// on-disk supports up to ~80 concurrent queries (best-practice statement_mem math:
+// 32G x 0.9 / 80 = 368MB per query). Higher tiers scale per-segment
+// resources linearly per the statement_mem formula. Storage math unaffected.
 export const CONCURRENCY_LEVELS = [
-  { id: 'low',  max: 10, factor: 1 },   // default — leaves results unchanged
-  { id: 'mid',  max: 30, factor: 1.5 },
-  { id: 'high', max: 80, factor: 2 },
+  { id: 'std',   max: 80,  factor: 1 },   // default — leaves results unchanged
+  { id: 'high',  max: 120, factor: 1.5 },
+  { id: 'xhigh', max: 160, factor: 2 },
 ];
 
 // Physical presets. arrayTB = usable RAID array capacity per data node.

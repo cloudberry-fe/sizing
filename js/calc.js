@@ -24,6 +24,21 @@ function computeNodesFor(onDiskTB, vcpu, memGB, concurrencyFactor = 1) {
   return Math.ceil(onDiskTB / perNodeTB);
 }
 
+// Segments per host: each primary segment gets 8 vCPU/cores + 32G (scaled by
+// concurrency factor); mirrors are co-hosted 1:1 (spread mirroring).
+export function segLayoutFor(cpu, memGB, concurrencyFactor = 1) {
+  const primaries = Math.max(1, Math.min(
+    Math.floor(cpu / (COMPUTE_RULE.vcpuPerTB * concurrencyFactor)),
+    Math.floor(memGB / (COMPUTE_RULE.memGBPerTB * concurrencyFactor))));
+  return { primaries, mirrors: primaries };
+}
+
+function layoutBom(layout, perSegTB) {
+  const lines = [{ labelKey: 'bom.layout', value: `${layout.primaries} primary + ${layout.mirrors} mirror` }];
+  if (perSegTB != null) lines.push({ labelKey: 'bom.perseg', value: `≈ ${perSegTB.toFixed(1)} TB` });
+  return lines;
+}
+
 // fin-industry 2023 deck method: mirror ×2, ÷0.9 OS+FS overhead, ÷0.8 keep 20% free.
 export function physicalNeedTB(onDiskTB) {
   return onDiskTB * 2 / 0.9 / 0.8;
@@ -35,8 +50,11 @@ export function calcPhysical({ dataTB, compressionRatio, presetId, concurrencyFa
   const storageNodes = Math.max(2, Math.ceil(physicalNeedTB(onDiskTB) / p.arrayTB));
   const computeNodes = computeNodesFor(onDiskTB, p.cores, p.memGB, concurrencyFactor);
   const segNodes = evenUp(Math.max(storageNodes, computeNodes));
+  const layout = segLayoutFor(p.cores, p.memGB, concurrencyFactor);
+  const perSegTB = onDiskTB / (segNodes * layout.primaries);
   return {
     product: 'lightning',
+    layout,
     roles: [
       { key: 'coordinator', count: 2, cpu: p.cores, memGB: p.memGB,
         storageTB: p.coordStorageTB, cpuUnitKey: 'unit.cores', noteKey: 'note.coord.physical',
@@ -56,6 +74,7 @@ export function calcPhysical({ dataTB, compressionRatio, presetId, concurrencyFa
           { labelKey: 'bom.datadisk', value: p.bom.dataDisk },
           { labelKey: 'bom.raid', valueKey: p.bom.raidKey },
           { labelKey: 'bom.nic', value: p.network },
+          ...layoutBom(layout, perSegTB),
         ] },
     ],
     binding: { type: computeNodes > storageNodes ? 'compute' : 'storage', storageNodes, computeNodes },
@@ -84,8 +103,11 @@ function lightningNodes({ dataTB, compressionRatio, vcpu, memGB, storageTB, conc
 export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor = 1 }) {
   const p = VM_PROFILES.find(x => x.id === profileId);
   const n = lightningNodes({ dataTB, compressionRatio, vcpu: p.vcpu, memGB: p.memGB, storageTB: p.storageTB, concurrencyFactor });
+  const layout = segLayoutFor(p.vcpu, p.memGB, concurrencyFactor);
+  const perSegTB = (dataTB / compressionRatio) / (n.dataNodes * layout.primaries);
   return {
     product: 'lightning',
+    layout,
     roles: [
       { key: 'coordinator', count: 2, cpu: VM_COORD.vcpu, memGB: VM_COORD.memGB,
         storageTB: VM_COORD.storageTB, cpuUnitKey: 'unit.vcpu', noteKey: 'note.coord.vm' },
@@ -95,6 +117,7 @@ export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor 
           { labelKey: 'bom.datadisk', value: `${p.storageTB}TB SSD` },
           { labelKey: 'bom.throughput', value: p.throughput },
           { labelKey: 'bom.host', valueKey: p.hostKey },
+          ...layoutBom(layout, perSegTB),
         ] },
     ],
     binding: { type: n.computeNodes > n.storageNodes ? 'compute' : 'storage',
@@ -108,8 +131,11 @@ export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFacto
   const s = CLOUD_SCHEMES.find(x => x.id === schemeId);
   const seg = s.segment;
   const n = lightningNodes({ dataTB, compressionRatio, vcpu: seg.vcpu, memGB: seg.memGB, storageTB: seg.storageTB, concurrencyFactor });
+  const layout = segLayoutFor(seg.vcpu, seg.memGB, concurrencyFactor);
+  const perSegTB = (dataTB / compressionRatio) / (n.dataNodes * layout.primaries);
   return {
     product: 'lightning',
+    layout,
     roles: [
       { key: 'coordinator', count: 2, cpu: s.coordinator.vcpu, memGB: s.coordinator.memGB,
         storageTB: s.coordinator.storageTB, instance: s.coordinator.instance,
@@ -118,7 +144,7 @@ export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFacto
       { key: 'datanode', count: n.dataNodes, cpu: seg.vcpu, memGB: seg.memGB,
         storageTB: seg.storageTB, instance: seg.instance,
         cpuUnitKey: 'unit.vcpu', noteKey: s.noteKey || 'note.datanode.vm',
-        bom: [{ labelKey: 'bom.datadisk', value: seg.diskDesc }] },
+        bom: [{ labelKey: 'bom.datadisk', value: seg.diskDesc }, ...layoutBom(layout, perSegTB)] },
       { key: 'oss', count: 1, cpu: null, memGB: null, storageTB: null,
         instance: s.oss, noteKey: 'note.oss' },
     ],
