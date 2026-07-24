@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HashData Sizing Calculator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <h1 data-i18n="title"></h1>
+  <button id="lang-toggle" type="button">EN</button>
+</header>
+<main>
+  <section class="card">
+    <label for="data-size" data-i18n="input.datasize"></label>
+    <div class="row">
+      <input id="data-size" type="number" min="0" step="any" value="100">
+      <select id="data-unit">
+        <option value="GB">GB</option>
+        <option value="TB" selected>TB</option>
+        <option value="PB">PB</option>
+      </select>
+    </div>
+    <label data-i18n="input.infra"></label>
+    <div class="tabs" id="infra-tabs">
+      <button type="button" data-infra="physical" class="active" data-i18n="infra.physical"></button>
+      <button type="button" data-infra="vm" data-i18n="infra.vm"></button>
+      <button type="button" data-infra="cloud" data-i18n="infra.cloud"></button>
+      <button type="button" data-infra="container" data-i18n="infra.container"></button>
+    </div>
+    <p id="product-line" class="product"></p>
+    <details id="advanced">
+      <summary data-i18n="advanced"></summary>
+      <div class="adv-grid">
+        <label class="adv" data-for="physical vm cloud">
+          <span data-i18n="adv.compression"></span>
+          <input id="compression" type="number" min="1" step="0.5" value="2">
+        </label>
+        <label class="adv" data-for="physical">
+          <span data-i18n="adv.tier"></span>
+          <select id="phys-tier"></select>
+        </label>
+        <label class="adv" data-for="cloud">
+          <span data-i18n="adv.provider"></span>
+          <select id="cloud-provider"></select>
+        </label>
+        <label class="adv" data-for="container">
+          <span data-i18n="adv.enttier"></span>
+          <select id="ent-tier"></select>
+        </label>
+      </div>
+    </details>
+  </section>
+  <section class="card" id="result-card" hidden>
+    <h2 data-i18n="result.title"></h2>
+    <p id="binding-badge" class="badge" hidden></p>
+    <p id="huge-warning" class="warn" hidden data-i18n="warn.huge"></p>
+    <table id="role-table">
+      <thead><tr>
+        <th data-i18n="col.role"></th><th data-i18n="col.count"></th>
+        <th data-i18n="col.spec"></th><th data-i18n="col.note"></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <h2 data-i18n="summary.title"></h2>
+    <table id="summary-table"><tbody></tbody></table>
+    <p id="network-line" class="product"></p>
+  </section>
+  <p id="input-error" class="warn" hidden data-i18n="err.invalid"></p>
+</main>
+<footer><p data-i18n="disclaimer"></p></footer>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
