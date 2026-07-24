@@ -39,15 +39,19 @@ function layoutBom(layout, perSegTB) {
   return lines;
 }
 
-// fin-industry 2023 deck method: mirror ×2, ÷0.9 OS+FS overhead, ÷0.8 keep 20% free.
-export function physicalNeedTB(onDiskTB) {
-  return onDiskTB * 2 / 0.9 / 0.8;
+// Unified per-node usable capacity, every discount applied exactly once:
+// ×0.9 OS/FS overhead, ×0.8 keep 20% free, ÷(2 + 1/3) mirror + workspace.
+// Same formula for every Lightning path; physical passes post-RAID arrayTB,
+// VM/cloud pass nominal data-disk capacity.
+export function nodeUsableTB(nominalTB) {
+  return nominalTB * 0.9 * 0.8 / (2 + 1 / 3);
 }
 
 export function calcPhysical({ dataTB, compressionRatio, presetId, concurrencyFactor = 1 }) {
   const p = PHYSICAL_PRESETS.find(x => x.id === presetId);
   const onDiskTB = dataTB / compressionRatio;
-  const storageNodes = Math.max(2, Math.ceil(physicalNeedTB(onDiskTB) / p.arrayTB));
+  const usable = nodeUsableTB(p.arrayTB);
+  const storageNodes = Math.max(2, Math.ceil(onDiskTB / usable));
   const computeNodes = computeNodesFor(onDiskTB, p.cores, p.memGB, concurrencyFactor);
   const segNodes = evenUp(Math.max(storageNodes, computeNodes));
   const layout = segLayoutFor(p.cores, p.memGB, concurrencyFactor);
@@ -78,13 +82,9 @@ export function calcPhysical({ dataTB, compressionRatio, presetId, concurrencyFa
         ] },
     ],
     binding: { type: computeNodes > storageNodes ? 'compute' : 'storage', storageNodes, computeNodes },
-    capacityTB: segNodes * p.arrayTB * 0.9 * 0.8 / 2 * compressionRatio,
+    capacityTB: segNodes * usable * compressionRatio,
     sourceKey: p.sourceKey,
   };
-}
-
-export function vmUsableTB(storageTB) {
-  return storageTB * 0.7 / (2 + 1 / 3);
 }
 
 export function recommendVMProfile(dataTB) {
@@ -92,9 +92,9 @@ export function recommendVMProfile(dataTB) {
 }
 
 function lightningNodes({ dataTB, compressionRatio, vcpu, memGB, storageTB, concurrencyFactor = 1 }) {
-  const usable = vmUsableTB(storageTB);
+  const usable = nodeUsableTB(storageTB);
   const onDiskTB = dataTB / compressionRatio;
-  const storageNodes = Math.max(2, evenUp(Math.trunc(onDiskTB / usable) + 2));
+  const storageNodes = Math.max(2, Math.ceil(onDiskTB / usable));
   const computeNodes = computeNodesFor(onDiskTB, vcpu, memGB, concurrencyFactor);
   const dataNodes = evenUp(Math.max(storageNodes, computeNodes));
   return { usable, storageNodes, computeNodes, dataNodes };

@@ -50,18 +50,20 @@ computeNodes = CEIL( onDiskTB ÷ perNodeTB )</pre>
 <pre class="en">perNodeTB    = min( vCPU ÷ (8 × f),  memGB ÷ (32 × f) )     # f = concurrency factor: ≤80→1 (default) / ≤120→1.5 / ≤160→2
 computeNodes = CEIL( onDiskTB ÷ perNodeTB )</pre>
 
+<h3><span class="zh">存储资源约束（统一公式）</span><span class="en">Storage constraint (unified formula)</span></h3>
+<p class="zh">所有 MPP 路径使用同一个单节点可用容量公式，每个折扣项只出现一次：×0.9 操作系统与文件系统开销、×0.8 预留 20% 空闲、÷(2 + 1/3) 镜像两份加 1/3 工作空间。物理机代入 RAID 后阵列容量，虚拟机/云主机代入数据盘标称容量：</p>
+<p class="en">Every MPP path uses one per-node usable-capacity formula, each discount applied exactly once: ×0.9 OS/filesystem overhead, ×0.8 to keep 20% free, ÷(2 + 1/3) for the mirror pair plus workspace. Physical passes post-RAID array capacity; VM/cloud pass nominal data-disk capacity:</p>
+<pre>usableTB     = nominalTB × 0.9 × 0.8 ÷ (2 + 1/3)     ≈ nominalTB × 0.31
+storageNodes = max( 2, CEIL( onDiskTB ÷ usableTB ) )</pre>
+
 <h3><span class="zh">最终节点数</span><span class="en">Final node count</span></h3>
 <p class="zh">存储与计算两个维度分别算出所需节点数，取<strong>较大者</strong>，再向上取偶数（MPP 习惯，便于 primary/mirror 对称分布）。结果页的徽标会标明是存储受限还是计算受限。</p>
 <p class="en">Storage-driven and compute-driven node counts are derived independently; the <strong>larger</strong> wins, then rounds up to an even number (MPP convention for symmetric primary/mirror placement). The result badge shows which constraint binds.</p>
 <pre>nodes = roundUpToEven( max( storageNodes, computeNodes ) )</pre>
 
 <h2>3. <span class="zh">物理机</span><span class="en">Physical</span> · Cloudberry MPP</h2>
-<p class="zh">存储侧按金融行业生产集群实践（2023）的方法：数据存两份（primary + mirror），操作系统与文件系统占标称容量约 10%，并保留 20% 空闲空间：</p>
-<p class="en">Storage follows a financial-industry production method (2023): data stored twice (primary + mirror), ~10% of nominal capacity consumed by OS and filesystem, and 20% kept free:</p>
-<pre class="zh">needTB       = onDiskTB × 2 ÷ 0.9 ÷ 0.8
-storageNodes = CEIL( needTB ÷ arrayTB )      # arrayTB = 单节点 RAID 后可用容量</pre>
-<pre class="en">needTB       = onDiskTB × 2 ÷ 0.9 ÷ 0.8
-storageNodes = CEIL( needTB ÷ arrayTB )      # arrayTB = usable RAID capacity per node</pre>
+<p class="zh">存储节点数用统一公式，nominalTB 代入 RAID 后阵列容量 arrayTB。方法源自金融行业生产集群实践（2023），统一公式在其基础上补了工作空间项，因此比该实践略保守（例：160TB/压缩比 2 时高吞吐款为 14 台而非原实践的 12 台）。</p>
+<p class="en">Storage nodes use the unified formula with nominalTB = post-RAID array capacity. The method derives from a financial-industry production practice (2023); the unified formula adds the workspace term on top, so it is slightly more conservative (e.g. 14 instead of 12 high-throughput nodes at 160TB / cr 2).</p>
 <p class="zh">三档硬件预设（arrayTB 取 RAID5 后可用盘数 × 单盘容量）：</p>
 <p class="en">Three hardware presets (arrayTB = usable disks after RAID5 × disk size):</p>
 <div class="table-wrap"><table>
@@ -111,12 +113,8 @@ gp_vmem_protect_limit      = gp_vmem ÷ max_acting_primary_segments
 statement_mem              = gp_vmem_protect_limit × 0.9 ÷ expected_concurrency</pre>
 
 <h2>4. <span class="zh">虚拟机</span><span class="en">VM</span> · Cloudberry MPP</h2>
-<p class="zh">单节点可用容量在数据盘标称容量上打三重折扣：70% 水位、÷2 镜像、再留 1/3 工作空间：</p>
-<p class="en">Per-node usable capacity applies three discounts to nominal disk capacity: 70% watermark, ÷2 mirror, plus 1/3 workspace:</p>
-<pre class="zh">usableTB     = storageTB × 0.7 ÷ (2 + 1/3)      ≈ storageTB × 0.3
-storageNodes = evenUp( TRUNC( onDiskTB ÷ usableTB ) + 2 )   # +2 为保底余量</pre>
-<pre class="en">usableTB     = storageTB × 0.7 ÷ (2 + 1/3)      ≈ storageTB × 0.3
-storageNodes = evenUp( TRUNC( onDiskTB ÷ usableTB ) + 2 )   # +2 headroom</pre>
+<p class="zh">存储节点数用统一公式，nominalTB 代入虚拟机数据盘标称容量（与 2025 部署规范的 0.7÷(2+1/3) 口径数值上基本一致，差异 ≈3%）。</p>
+<p class="en">Storage nodes use the unified formula with nominalTB = the VM's nominal data-disk capacity (numerically within ~3% of the 2025 deployment spec's 0.7÷(2+1/3) convention).</p>
 <p class="zh">三档虚拟机规格，按数据量自动推荐（可手动覆盖）：</p>
 <p class="en">Three VM profiles, auto-recommended by data size (manual override available):</p>
 <div class="table-wrap"><table>
@@ -161,10 +159,7 @@ segmentSpec = (8 × f) vCPU / (32 × f) G / 500G cache</pre>
 <h2>7. <span class="zh">汇总与可承载容量</span><span class="en">Totals &amp; usable capacity</span></h2>
 <p class="zh">资源汇总 = Σ(各角色节点数 × 每节点规格)。「可承载数据量」是把最终节点数代回存储公式反推的上限——它 ≥ 你输入的数据量，差值就是本方案的自然余量。</p>
 <p class="en">Totals sum count × per-node spec across roles. "Usable data capacity" inverts the storage formula at the final node count — it is ≥ your input, and the difference is the recommendation's natural headroom.</p>
-<pre class="zh">capacityTB(物理机) = nodes × arrayTB × 0.9 × 0.8 ÷ 2 × compressionRatio
-capacityTB(VM/云)  = nodes × usableTB × compressionRatio</pre>
-<pre class="en">capacityTB(physical) = nodes × arrayTB × 0.9 × 0.8 ÷ 2 × compressionRatio
-capacityTB(VM/cloud) = nodes × usableTB × compressionRatio</pre>
+<pre>capacityTB = nodes × usableTB × compressionRatio</pre>
 
 <p style="margin-top:26px" class="zh">⚠ 所有结果为估算值，实际配置请以 POC 验证为准。</p>
 <p style="margin-top:26px" class="en">⚠ All results are estimates; validate with a POC before final sizing.</p>

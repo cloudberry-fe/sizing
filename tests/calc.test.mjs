@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   toTB, excelRound, excelEven, evenUp,
-  physicalNeedTB, calcPhysical,
-  vmUsableTB, recommendVMProfile, calcVM, calcCloud,
+  nodeUsableTB, calcPhysical,
+  recommendVMProfile, calcVM, calcCloud,
   calcEnterprise, summarize,
 } from '../js/calc.js';
 import { PHYSICAL_PRESETS, VM_PROFILES, CLOUD_SCHEMES, ENTERPRISE_SEGMENT } from '../js/config.js';
@@ -35,9 +35,9 @@ test('evenUp: integers round odd up to even', () => {
 
 // --- Physical (fin-industry 2023 deck method) ---
 
-test('physicalNeedTB: x2 mirror, /0.9 OS+FS, /0.8 free reserve', () => {
-  // customer deck: 160TB (incl. mirror) -> 160/0.8/0.9 = 222.2; ours takes onDisk=80
-  assert.ok(Math.abs(physicalNeedTB(80) - 222.222) < 0.01);
+test('nodeUsableTB: x0.9 FS, x0.8 free, /(2+1/3) mirror+workspace — unified for all paths', () => {
+  assert.ok(Math.abs(nodeUsableTB(26.4) - 8.1463) < 0.001); // physical sas array
+  assert.ok(Math.abs(nodeUsableTB(2) - 0.6171) < 0.001);    // vm lite disk
 });
 
 test('Customer-deck regression: 160TB cr=2 sas_std -> 10 data nodes (deck says 10)', () => {
@@ -46,16 +46,16 @@ test('Customer-deck regression: 160TB cr=2 sas_std -> 10 data nodes (deck says 1
   assert.equal(role(r, 'coordinator').count, 2);
 });
 
-test('Customer-deck regression: 160TB cr=2 ssd_perf -> 12 data nodes (deck says 12)', () => {
+test('160TB cr=2 ssd_perf -> 14 nodes (deck said 12; unified formula adds workspace term)', () => {
   const r = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'ssd_perf' });
-  assert.equal(role(r, 'segment').count, 12);
-  assert.equal(r.binding.storageNodes, 11);
+  assert.equal(role(r, 'segment').count, 14);
+  assert.equal(r.binding.storageNodes, 13); // ceil(80 / (21.12*0.72/2.333))
   assert.equal(r.binding.type, 'storage');
 });
 
 test('physical nvme_modern is compute-bound at 160TB cr=2', () => {
   const r = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'nvme_modern' });
-  assert.equal(r.binding.storageNodes, 6);  // ceil(222.2/42.24)
+  assert.equal(r.binding.storageNodes, 7);  // ceil(80 / 13.03)
   assert.equal(r.binding.computeNodes, 10); // ceil(80/8)
   assert.equal(role(r, 'segment').count, 10);
 });
@@ -67,13 +67,13 @@ test('physical tiny data floors at 2 segment nodes', () => {
 
 test('physical capacityTB inverts the formula', () => {
   const r = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'sas_std' });
-  // 10 nodes × 26.4 × 0.9 × 0.8 / 2 × 2 = 190.08
-  assert.ok(Math.abs(r.capacityTB - 190.08) < 0.01);
+  // 10 nodes × nodeUsableTB(26.4) × 2 = 162.93
+  assert.ok(Math.abs(r.capacityTB - 162.93) < 0.01);
 });
 
 test('physical tie-break: equal storage/compute nodes -> storage-bound (40TB cr=1 sas_std)', () => {
   const r = calcPhysical({ dataTB: 40, compressionRatio: 1, presetId: 'sas_std' });
-  assert.equal(r.binding.storageNodes, 5); // ceil(111.1/26.4)
+  assert.equal(r.binding.storageNodes, 5); // ceil(40 / 8.146)
   assert.equal(r.binding.computeNodes, 5); // ceil(40/8)
   assert.equal(r.binding.type, 'storage');
   assert.equal(role(r, 'segment').count, 6);
@@ -89,27 +89,23 @@ test('physical roles carry BOM lines incl. RAID', () => {
 
 // --- VM (profiles) ---
 
-test('vm usable = storage * 0.7/(2+1/3)', () => {
-  assert.ok(Math.abs(vmUsableTB(2) - 0.6) < 0.0001);
-});
-
 test('recommendVMProfile picks by business data size', () => {
   assert.equal(recommendVMProfile(3).id, 'lite');
   assert.equal(recommendVMProfile(30).id, 'medium');
   assert.equal(recommendVMProfile(100).id, 'large');
 });
 
-test('vm lite 10TB cr=1: storage-bound 18 nodes (2025 sheet formula)', () => {
+test('vm lite 10TB cr=1: storage-bound 18 nodes (unified formula)', () => {
   const r = calcVM({ dataTB: 10, compressionRatio: 1, profileId: 'lite' });
-  assert.equal(r.binding.storageNodes, 18); // TRUNC(10/0.6)+2
+  assert.equal(r.binding.storageNodes, 17); // ceil(10/0.617)
   assert.equal(r.binding.computeNodes, 10);
   assert.equal(r.binding.type, 'storage');
-  assert.equal(role(r, 'datanode').count, 18);
+  assert.equal(role(r, 'datanode').count, 18); // evenUp
 });
 
 test('vm medium 30TB cr=2: 14 nodes, coordinator fixed 8vCPU/32G', () => {
   const r = calcVM({ dataTB: 30, compressionRatio: 2, profileId: 'medium' });
-  assert.equal(role(r, 'datanode').count, 14); // trunc(15/1.2)+2=14
+  assert.equal(role(r, 'datanode').count, 14); // evenUp(ceil(15/1.234))
   const coord = role(r, 'coordinator');
   assert.equal(coord.cpu, 8);
   assert.equal(coord.memGB, 32);
@@ -122,24 +118,24 @@ test('cloud aws_ebs 20TB cr=2: r5.4xlarge, storage-bound 8 nodes', () => {
   const r = calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'aws_ebs' });
   const dn = role(r, 'datanode');
   assert.equal(dn.instance, 'r5.4xlarge');
-  assert.equal(r.binding.storageNodes, 8); // trunc(10/1.8)+2=7 -> even 8
+  assert.equal(r.binding.storageNodes, 6); // ceil(10/1.851)
   assert.equal(r.binding.computeNodes, 5); // ceil(10/min(2,4))
-  assert.equal(dn.count, 8);
+  assert.equal(dn.count, 6);
   assert.equal(role(r, 'coordinator').instance, 'r5.xlarge');
   assert.ok(r.roles.some(x => x.key === 'oss'));
 });
 
 test('cloud aws_local (i3en) 20TB cr=1: compute-bound 20 nodes', () => {
   const r = calcCloud({ dataTB: 20, compressionRatio: 1, schemeId: 'aws_local' });
-  assert.equal(r.binding.storageNodes, 16); // trunc(20/1.5)+2=15 -> even 16
+  assert.equal(r.binding.storageNodes, 13); // ceil(20/1.543)
   assert.equal(r.binding.computeNodes, 20);
   assert.equal(role(r, 'datanode').count, 20);
 });
 
-test('cloud azure_local 50TB cr=1 keeps 2025-sheet pin: 88 nodes', () => {
+test('cloud azure_local 50TB cr=1: 86 nodes (2025 sheet said 88; unified formula)', () => {
   const r = calcCloud({ dataTB: 50, compressionRatio: 1, schemeId: 'azure_local' });
-  assert.equal(r.binding.storageNodes, 88); // trunc(50/(1.92*0.3))+2=88
-  assert.equal(role(r, 'datanode').count, 88);
+  assert.equal(r.binding.storageNodes, 85); // ceil(50/0.5925)
+  assert.equal(role(r, 'datanode').count, 86);
 });
 
 test('every cloud scheme resolves with coordinator+segment', () => {
@@ -215,7 +211,7 @@ test('concurrency factor scales compute constraint only (default unchanged)', ()
 test('concurrency factor on vm path (mid=1.5)', () => {
   const r = calcVM({ dataTB: 10, compressionRatio: 1, profileId: 'lite', concurrencyFactor: 1.5 });
   assert.equal(r.binding.computeNodes, 15); // ceil(10 / min(8/12, 64/48))
-  assert.equal(r.binding.storageNodes, 18); // unchanged, still storage-bound
+  assert.equal(r.binding.storageNodes, 17); // unchanged, still storage-bound
 });
 
 test('segment layout: 8P+8M per physical host at standard concurrency', () => {
