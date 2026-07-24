@@ -1,4 +1,4 @@
-import { COMPUTE_RULE, PHYSICAL_TIERS, PHYSICAL_NODE } from './config.js';
+import { COMPUTE_RULE, PHYSICAL_TIERS, PHYSICAL_NODE, VM_NODE, CLOUD } from './config.js';
 
 export function toTB(value, unit) {
   if (unit === 'GB') return value / 1024;
@@ -46,4 +46,41 @@ export function calcPhysical({ dataTB, compressionRatio, tierId }) {
     binding: { type: computeNodes > storageNodes ? 'compute' : 'storage', storageNodes, computeNodes },
     capacityTB: segNodes * usable * compressionRatio,
   };
+}
+
+export function vmUsableTB(storageTB) {
+  return storageTB * 0.7 / (2 + 1 / 3);
+}
+
+function lightningVMResult({ dataTB, compressionRatio, node, instance, extraRoles }) {
+  const usable = vmUsableTB(node.storageTB);
+  const onDiskTB = dataTB / compressionRatio;
+  const storageNodes = Math.max(2, evenUp(Math.trunc(onDiskTB / usable) + 2));
+  const computeNodes = computeNodesFor(onDiskTB, node.vcpu, node.memGB);
+  const dataNodes = evenUp(Math.max(storageNodes, computeNodes));
+  return {
+    product: 'lightning',
+    roles: [
+      { key: 'coordinator', count: 2, cpu: node.vcpu, memGB: node.memGB,
+        storageTB: VM_NODE.coordStorageTB, instance, noteKey: 'note.coord.vm' },
+      { key: 'datanode', count: dataNodes, cpu: node.vcpu, memGB: node.memGB,
+        storageTB: node.storageTB, instance, noteKey: 'note.datanode.vm' },
+      ...(extraRoles || []),
+    ],
+    binding: { type: computeNodes > storageNodes ? 'compute' : 'storage', storageNodes, computeNodes },
+    capacityTB: dataNodes * usable * compressionRatio,
+  };
+}
+
+export function calcVM({ dataTB, compressionRatio }) {
+  return lightningVMResult({ dataTB, compressionRatio, node: VM_NODE, instance: null, extraRoles: null });
+}
+
+export function calcCloud({ dataTB, compressionRatio, cloudId }) {
+  const c = CLOUD[cloudId];
+  return lightningVMResult({
+    dataTB, compressionRatio, node: c, instance: c.instance,
+    extraRoles: [{ key: 'oss', count: 1, cpu: null, memGB: null, storageTB: null,
+                   instance: c.oss, noteKey: 'note.oss' }],
+  });
 }

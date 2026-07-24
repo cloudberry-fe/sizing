@@ -56,3 +56,41 @@ test('physical tiny data floors at 2 segment nodes', () => {
   const r = calcPhysical({ dataTB: 1, compressionRatio: 2, tierId: 'ssd192x24' });
   assert.equal(r.roles.find(x => x.key === 'segment').count, 2);
 });
+
+import { calcVM, calcCloud, vmUsableTB } from '../js/calc.js';
+
+test('vm usable = storage * 0.7/(2+1/3)', () => {
+  assert.ok(Math.abs(vmUsableTB(2) - 0.6) < 0.0001);
+});
+
+test('vm 10TB cr=1: matches 2025 sheet formula, storage-bound', () => {
+  const r = calcVM({ dataTB: 10, compressionRatio: 1 });
+  // TRUNC(10/0.6)+2 = 18 -> even 18; compute = CEIL(10/1) = 10
+  assert.equal(r.binding.storageNodes, 18);
+  assert.equal(r.binding.computeNodes, 10);
+  assert.equal(r.binding.type, 'storage');
+  assert.equal(r.roles.find(x => x.key === 'datanode').count, 18);
+});
+
+test('vm 10TB cr=2: compression halves on-disk data', () => {
+  const r = calcVM({ dataTB: 10, compressionRatio: 2 });
+  assert.equal(r.binding.storageNodes, 10); // TRUNC(5/0.6)+2=10
+  assert.equal(r.roles.find(x => x.key === 'datanode').count, 10);
+});
+
+test('cloud i3en 20TB cr=1: compute-bound at 20 nodes', () => {
+  const r = calcCloud({ dataTB: 20, compressionRatio: 1, cloudId: 'aws_i3en' });
+  assert.equal(r.binding.storageNodes, 16); // TRUNC(20/1.5)+2=15 -> even 16
+  assert.equal(r.binding.computeNodes, 20);
+  assert.equal(r.binding.type, 'compute');
+  const dn = r.roles.find(x => x.key === 'datanode');
+  assert.equal(dn.count, 20);
+  assert.equal(dn.instance, 'i3en.2xlarge');
+  assert.ok(r.roles.some(x => x.key === 'oss'));
+});
+
+test('cloud azure 50TB cr=1 matches sheet: 88 nodes', () => {
+  const r = calcCloud({ dataTB: 50, compressionRatio: 1, cloudId: 'azure' });
+  assert.equal(r.binding.storageNodes, 88); // TRUNC(50/(1.92*0.3))+2=88
+  assert.equal(r.roles.find(x => x.key === 'datanode').count, 88);
+});
