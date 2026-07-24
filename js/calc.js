@@ -18,8 +18,9 @@ export function evenUp(n) {
   return n % 2 ? n + 1 : n;
 }
 
-function computeNodesFor(onDiskTB, vcpu, memGB) {
-  const perNodeTB = Math.min(vcpu / COMPUTE_RULE.vcpuPerTB, memGB / COMPUTE_RULE.memGBPerTB);
+function computeNodesFor(onDiskTB, vcpu, memGB, concurrencyFactor = 1) {
+  const perNodeTB = Math.min(vcpu / (COMPUTE_RULE.vcpuPerTB * concurrencyFactor),
+                             memGB / (COMPUTE_RULE.memGBPerTB * concurrencyFactor));
   return Math.ceil(onDiskTB / perNodeTB);
 }
 
@@ -28,11 +29,11 @@ export function physicalNeedTB(onDiskTB) {
   return onDiskTB * 2 / 0.9 / 0.8;
 }
 
-export function calcPhysical({ dataTB, compressionRatio, presetId }) {
+export function calcPhysical({ dataTB, compressionRatio, presetId, concurrencyFactor = 1 }) {
   const p = PHYSICAL_PRESETS.find(x => x.id === presetId);
   const onDiskTB = dataTB / compressionRatio;
   const storageNodes = Math.max(2, Math.ceil(physicalNeedTB(onDiskTB) / p.arrayTB));
-  const computeNodes = computeNodesFor(onDiskTB, p.cores, p.memGB);
+  const computeNodes = computeNodesFor(onDiskTB, p.cores, p.memGB, concurrencyFactor);
   const segNodes = evenUp(Math.max(storageNodes, computeNodes));
   return {
     product: 'lightning',
@@ -71,18 +72,18 @@ export function recommendVMProfile(dataTB) {
   return VM_PROFILES.find(p => dataTB <= p.maxTB);
 }
 
-function lightningNodes({ dataTB, compressionRatio, vcpu, memGB, storageTB }) {
+function lightningNodes({ dataTB, compressionRatio, vcpu, memGB, storageTB, concurrencyFactor = 1 }) {
   const usable = vmUsableTB(storageTB);
   const onDiskTB = dataTB / compressionRatio;
   const storageNodes = Math.max(2, evenUp(Math.trunc(onDiskTB / usable) + 2));
-  const computeNodes = computeNodesFor(onDiskTB, vcpu, memGB);
+  const computeNodes = computeNodesFor(onDiskTB, vcpu, memGB, concurrencyFactor);
   const dataNodes = evenUp(Math.max(storageNodes, computeNodes));
   return { usable, storageNodes, computeNodes, dataNodes };
 }
 
-export function calcVM({ dataTB, compressionRatio, profileId }) {
+export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor = 1 }) {
   const p = VM_PROFILES.find(x => x.id === profileId);
-  const n = lightningNodes({ dataTB, compressionRatio, vcpu: p.vcpu, memGB: p.memGB, storageTB: p.storageTB });
+  const n = lightningNodes({ dataTB, compressionRatio, vcpu: p.vcpu, memGB: p.memGB, storageTB: p.storageTB, concurrencyFactor });
   return {
     product: 'lightning',
     roles: [
@@ -103,10 +104,10 @@ export function calcVM({ dataTB, compressionRatio, profileId }) {
   };
 }
 
-export function calcCloud({ dataTB, compressionRatio, schemeId }) {
+export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFactor = 1 }) {
   const s = CLOUD_SCHEMES.find(x => x.id === schemeId);
   const seg = s.segment;
-  const n = lightningNodes({ dataTB, compressionRatio, vcpu: seg.vcpu, memGB: seg.memGB, storageTB: seg.storageTB });
+  const n = lightningNodes({ dataTB, compressionRatio, vcpu: seg.vcpu, memGB: seg.memGB, storageTB: seg.storageTB, concurrencyFactor });
   return {
     product: 'lightning',
     roles: [

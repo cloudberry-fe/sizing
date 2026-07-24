@@ -14,6 +14,11 @@ export const STRINGS = {
   'product.container':{ zh: 'Cloudberry 存算分离 · 容器/K8s', en: 'Cloudberry compute-storage separation · container/K8s' },
   'advanced':         { zh: '高级选项', en: 'Advanced options' },
   'adv.compression':  { zh: '压缩比', en: 'Compression ratio' },
+  'adv.concurrency':  { zh: '并发规模', en: 'Concurrency' },
+  'conc.low':         { zh: '低（≤10 并发，默认）', en: 'Low (≤10 concurrent, default)' },
+  'conc.mid':         { zh: '中（≤30 并发，计算需求 ×1.5）', en: 'Medium (≤30 concurrent, compute ×1.5)' },
+  'conc.high':        { zh: '高（≤80 并发，计算需求 ×2）', en: 'High (≤80 concurrent, compute ×2)' },
+  'nav.method':       { zh: '计算方法说明', en: 'Methodology' },
   'adv.enttier':      { zh: '并发档位', en: 'Concurrency tier' },
   'enttier.label':    { zh: '（并发 ≤ {n}）', en: '(concurrency ≤ {n})' },
 

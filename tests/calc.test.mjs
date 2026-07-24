@@ -188,3 +188,18 @@ test('config sanity: presets/profiles/schemes counts', () => {
   assert.equal(VM_PROFILES.length, 3);
   assert.equal(CLOUD_SCHEMES.length, 6);
 });
+
+test('concurrency factor scales compute constraint only (default unchanged)', () => {
+  const def = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'sas_std' });
+  const high = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'sas_std', concurrencyFactor: 2 });
+  assert.equal(def.roles.find(x => x.key === 'segment').count, 10);
+  assert.equal(high.binding.computeNodes, 20); // ceil(80 / min(64/16, 512/64))
+  assert.equal(high.binding.storageNodes, def.binding.storageNodes); // storage math untouched
+  assert.equal(high.roles.find(x => x.key === 'segment').count, 20);
+});
+
+test('concurrency factor on vm path (mid=1.5)', () => {
+  const r = calcVM({ dataTB: 10, compressionRatio: 1, profileId: 'lite', concurrencyFactor: 1.5 });
+  assert.equal(r.binding.computeNodes, 15); // ceil(10 / min(8/12, 64/48))
+  assert.equal(r.binding.storageNodes, 18); // unchanged, still storage-bound
+});

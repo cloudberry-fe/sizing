@@ -1,5 +1,5 @@
 import { toTB, calcPhysical, calcVM, calcCloud, calcEnterprise, summarize, recommendVMProfile } from './calc.js';
-import { PHYSICAL_PRESETS, VM_PROFILES, CLOUD_SCHEMES, ENTERPRISE_TIERS } from './config.js';
+import { PHYSICAL_PRESETS, VM_PROFILES, CLOUD_SCHEMES, ENTERPRISE_TIERS, CONCURRENCY_LEVELS } from './config.js';
 import { t } from './i18n.js';
 
 function readStoredLang() {
@@ -51,6 +51,13 @@ function populateCloudScheme() {
       `${t(s.kindKey, state.lang)} · ${s.segment.instance}</option>`).join('') + '</optgroup>').join('');
 }
 
+function populateConcurrency() {
+  const prev = $('concurrency').value;
+  $('concurrency').innerHTML = CONCURRENCY_LEVELS
+    .map(c => `<option value="${c.id}">${t('conc.' + c.id, state.lang)}</option>`).join('');
+  if (prev) $('concurrency').value = prev;
+}
+
 function populateEntTier() {
   const prev = $('ent-tier').value;
   $('ent-tier').innerHTML = ENTERPRISE_TIERS
@@ -66,6 +73,7 @@ function applyLang() {
   populateVMProfile();
   populateCloudScheme();
   populateEntTier();
+  populateConcurrency();
 }
 
 function specText(r) {
@@ -93,13 +101,14 @@ function compute() {
 
   const dataTB = toTB(size, $('data-unit').value);
   const compressionRatio = Math.max(1, parseFloat($('compression').value) || 1);
+  const concurrencyFactor = (CONCURRENCY_LEVELS.find(c => c.id === $('concurrency').value) || CONCURRENCY_LEVELS[0]).factor;
   let r;
   if (state.infra === 'physical') {
-    r = calcPhysical({ dataTB, compressionRatio, presetId: state.presetId });
+    r = calcPhysical({ dataTB, compressionRatio, presetId: state.presetId, concurrencyFactor });
   } else if (state.infra === 'vm') {
-    r = calcVM({ dataTB, compressionRatio, profileId: activeVMProfileId(dataTB) });
+    r = calcVM({ dataTB, compressionRatio, profileId: activeVMProfileId(dataTB), concurrencyFactor });
   } else if (state.infra === 'cloud') {
-    r = calcCloud({ dataTB, compressionRatio, schemeId: state.schemeId });
+    r = calcCloud({ dataTB, compressionRatio, schemeId: state.schemeId, concurrencyFactor });
   } else {
     r = calcEnterprise({ dataTB, tierId: $('ent-tier').value });
   }
@@ -174,7 +183,7 @@ $('lang-toggle').addEventListener('click', () => {
   compute();
 });
 
-['data-size', 'data-unit', 'compression', 'ent-tier']
+['data-size', 'data-unit', 'compression', 'concurrency', 'ent-tier']
   .forEach(id => $(id).addEventListener('input', compute));
 
 applyLang();

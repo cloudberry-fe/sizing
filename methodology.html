@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>计算方法说明 · Cloudberry Family Sizing</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .doc h2 { margin-top: 30px; border-bottom: 1px solid var(--border-soft); padding-bottom: 8px; }
+  .doc h3 { font-size: 1rem; margin: 18px 0 8px; }
+  .doc p, .doc li { font-size: .93rem; color: var(--fg); }
+  .doc .en { color: var(--fg-soft); font-size: .86rem; }
+  .doc pre {
+    background: #fbfcfe; border: 1px solid var(--border-soft); border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto; font-size: .86rem; line-height: 1.6;
+  }
+  .doc table { font-size: .88rem; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <div>
+      <h1>计算方法说明 <span style="font-weight:400;color:var(--fg-soft)">Methodology</span></h1>
+      <p class="subtitle">本工具如何估算计算资源与存储资源 · How compute and storage are estimated</p>
+    </div>
+    <div class="header-actions">
+      <a href="index.html" class="nav-link">← 返回计算器 / Back</a>
+    </div>
+  </div>
+</header>
+<main>
+<section class="card doc">
+
+<h2>1. 输入 · Inputs</h2>
+<p>工具的输入是<strong>未压缩的业务数据量</strong>（GB/TB/PB）和基础设施类型。所有路径都从这两个值出发推导节点数与每节点规格。</p>
+<p class="en">Input is the uncompressed business data size plus the infrastructure type. Everything else is derived.</p>
+
+<h2>2. 通用规则 · Common rules</h2>
+<h3>压缩比 Compression</h3>
+<p>列式存储 + 压缩后，落盘数据 ≈ 业务数据 ÷ 压缩比（默认 2，可在高级选项调整）。存算分离（容器）路径按源规范不启用压缩。</p>
+<pre>onDiskTB = dataTB ÷ compressionRatio</pre>
+
+<h3>计算资源约束 Compute constraint（8c32G / TB 经验值）</h3>
+<p>现场经验：每 1 TB 落盘数据需要约 <strong>8 vCPU + 32 GB 内存</strong>（按 ≤10 并发基线）。并发规模更高时按系数放大：≤30 并发 ×1.5，≤80 并发 ×2（高级选项）。单节点能"管"的数据量取 CPU 与内存两个约束的较小值：</p>
+<pre>perNodeTB    = min( vCPU ÷ (8 × f),  memGB ÷ (32 × f) )     # f = 并发系数 1 / 1.5 / 2
+computeNodes = CEIL( onDiskTB ÷ perNodeTB )</pre>
+<p class="en">Field rule: 8 vCPU + 32 GB per TB of on-disk data at ≤10 concurrent queries; the factor f scales it for higher concurrency. Per-node capacity is the tighter of the CPU and memory limits.</p>
+
+<h3>最终节点数 Final node count</h3>
+<p>存储与计算两个维度分别算出所需节点数，取<strong>较大者</strong>，再向上取偶数（MPP 习惯，便于 primary/mirror 对称分布）。结果页的徽标会标明是存储受限还是计算受限。</p>
+<pre>nodes = roundUpToEven( max( storageNodes, computeNodes ) )</pre>
+
+<h2>3. 物理机 · Physical (Cloudberry MPP)</h2>
+<p>存储侧按金融行业生产集群实践（2023）的方法：数据存两份（primary + mirror），操作系统与文件系统占标称容量约 10%，并保留 20% 空闲空间：</p>
+<pre>needTB       = onDiskTB × 2 ÷ 0.9 ÷ 0.8
+storageNodes = CEIL( needTB ÷ arrayTB )      # arrayTB = 单节点 RAID 后可用容量</pre>
+<p>三档硬件预设（arrayTB 取 RAID5 后可用盘数 × 单盘容量）：</p>
+<div class="table-wrap"><table>
+<thead><tr><th>预设</th><th>CPU / 内存</th><th>数据盘</th><th>RAID</th><th>单节点可用</th><th>网卡</th></tr></thead>
+<tbody>
+<tr><td>基础款 · SAS</td><td>2×32C / 512G</td><td>24 × 1.2TB 10K SAS</td><td>每 12 盘一组 RAID5 ×2（22 盘可用）</td><td>26.4 TB</td><td>2×10GbE</td></tr>
+<tr><td>高吞吐款 · SSD</td><td>2×32C / 1024G</td><td>24 × 960GB SSD</td><td>同上</td><td>21.1 TB</td><td>2×10GbE/25GbE</td></tr>
+<tr><td>现代款 · NVMe</td><td>2×32C / 1024G DDR5</td><td>12 × 3.84TB NVMe U.2</td><td>RAID5（11 盘可用）</td><td>42.2 TB</td><td>2×25GbE</td></tr>
+</tbody></table></div>
+<p>Coordinator 固定 2 台（主+备），同级 CPU/内存，系统盘 RAID1 + 小容量数据阵列。计算约束按整机物理核数（64C）与内存代入通用公式。</p>
+<p class="en">Storage: data ×2 (mirror), ÷0.9 OS/FS overhead, ÷0.8 to keep 20% free, divided by the per-node usable RAID capacity. Compute uses the common rule with 64 physical cores per node. Coordinator ×2 fixed.</p>
+
+<h2>4. 虚拟机 · VM (Cloudberry MPP)</h2>
+<p>单节点可用容量在数据盘标称容量上打三重折扣：70% 水位、÷2 镜像、再留 1/3 工作空间：</p>
+<pre>usableTB     = storageTB × 0.7 ÷ (2 + 1/3)      ≈ storageTB × 0.3
+storageNodes = evenUp( TRUNC( onDiskTB ÷ usableTB ) + 2 )   # +2 为保底余量</pre>
+<p>三档虚拟机规格，按数据量自动推荐（可手动覆盖）：</p>
+<div class="table-wrap"><table>
+<thead><tr><th>规格</th><th>适用</th><th>vCPU / 内存 / 数据盘</th><th>盘吞吐</th><th>宿主机要求</th></tr></thead>
+<tbody>
+<tr><td>Lite</td><td>≤5 TB</td><td>8 / 64G / 2T SSD</td><td>≥500 MB/s</td><td>可共享宿主机</td></tr>
+<tr><td>Medium</td><td>≤50 TB</td><td>16 / 128G / 4T SSD</td><td>≥1000 MB/s</td><td>CPU 超配 ≤1:2</td></tr>
+<tr><td>Large</td><td>&gt;50 TB</td><td>24 / 256G / 8T SSD</td><td>≥1500 MB/s</td><td>独占宿主机，1:1 物理资源</td></tr>
+</tbody></table></div>
+<p class="en">Per-node usable ≈ 30% of nominal disk (0.7 watermark, ÷2 mirror, +1/3 workspace). Profile auto-selected by data size; override in advanced options.</p>
+
+<h2>5. 云主机 · Cloud (Cloudberry MPP)</h2>
+<p>节点数公式与虚拟机相同，单节点存储取所选云方案的数据盘容量。每个云厂商提供两套方案：</p>
+<ul>
+<li><strong>云盘方案</strong>（来源：MPP 7.7 官方 Cloud Technical Recommendations）：AWS r5.4xlarge + 3×EBS ST1/GP3；Azure Standard_E16s_v5 + 3×P40 Premium SSD；GCP n2-highmem-8 + pd-ssd。数据可靠性依赖云盘，支持快照。</li>
+<li><strong>本地盘方案</strong>（生产部署实践）：AWS i3en.2xlarge、Azure Standard_L8s_v3、GCP c3d-standard-8-lssd 本地 NVMe。吞吐更高、成本更低，可靠性依赖 primary/mirror 双副本。</li>
+</ul>
+<p>附加建议：Azure 使用 UDP interconnect 并预留端口 65330；GCP 官方建议用更多的小节点（相对 AWS）。</p>
+<p class="en">Same formula as VM with per-scheme disk capacity. Managed-disk schemes follow the MPP 7.7 official recommendations; local-NVMe schemes follow production deployment practice.</p>
+
+<h2>6. 容器 / K8s · Compute-storage separation</h2>
+<p>存算分离形态下数据本体在对象存储（OSS，按需扩容），计算节点本地盘只是缓存/工作区，因此逻辑相反：<strong>并发档位决定单 Segment 规格与其管理的数据量</strong>：</p>
+<pre>segments = max( 2, CEIL( dataTB ÷ TB_per_segment ) )</pre>
+<div class="table-wrap"><table>
+<thead><tr><th>档位</th><th>并发</th><th>Proxy</th><th>Segment</th><th>TB / Segment</th></tr></thead>
+<tbody>
+<tr><td>Spec-1</td><td>≤10</td><td>4c/32G</td><td>4c/16G/500G</td><td>1</td></tr>
+<tr><td>Spec-2</td><td>≤20</td><td>8c/32G</td><td>8c/16G/500G</td><td>1</td></tr>
+<tr><td>Spec-3</td><td>≤30</td><td>16c/32G</td><td>8c/32G/1T</td><td>2</td></tr>
+<tr><td>Spec-4</td><td>≤40</td><td>16c/48G</td><td>16c/32G/1T</td><td>2</td></tr>
+<tr><td>Spec-5</td><td>≤80</td><td>16c/64G</td><td>16c/64G/1T</td><td>4</td></tr>
+</tbody></table></div>
+<p>固定平台组件：Meta 服务 6 实例（UnionStore ×4 + Metadata-Proxy + Storage-Broker）、WebConsole ×11 小容器、负载均衡、OSS。</p>
+<p class="en">Data lives in OSS; the concurrency tier sets per-segment size and TB-per-segment. Fixed platform components (meta services, console, LB) are added on top.</p>
+
+<h2>7. 汇总与可承载容量 · Totals</h2>
+<p>资源汇总 = Σ(各角色节点数 × 每节点规格)。「可承载数据量」是把最终节点数代回存储公式反推的上限——它 ≥ 你输入的数据量，差值就是本方案的自然余量。</p>
+<pre>capacityTB(物理机) = nodes × arrayTB × 0.9 × 0.8 ÷ 2 × compressionRatio
+capacityTB(VM/云)  = nodes × usableTB × compressionRatio</pre>
+<p class="en">Totals sum count × per-node spec across roles. "Usable data capacity" inverts the storage formula at the final node count — the headroom of the recommendation.</p>
+
+<p style="margin-top:26px" class="en">⚠ 所有结果为估算值，实际配置请以 POC 验证为准。 All results are estimates; validate with a POC.</p>
+</section>
+</main>
+<script>
+  // no logic; static document
+</script>
+</body>
+</html>

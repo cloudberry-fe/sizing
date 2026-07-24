@@ -1,6 +1,14 @@
 // All tunable sizing data. Formula-structural constants live in calc.js.
 export const COMPUTE_RULE = { vcpuPerTB: 8, memGBPerTB: 32 };
 
+// Lightning-path concurrency levels: factor scales the compute rule
+// (8c/32G per TB assumes <=10 concurrent queries). Storage math unaffected.
+export const CONCURRENCY_LEVELS = [
+  { id: 'low',  max: 10, factor: 1 },   // default — leaves results unchanged
+  { id: 'mid',  max: 30, factor: 1.5 },
+  { id: 'high', max: 80, factor: 2 },
+];
+
 // Physical presets. arrayTB = usable RAID array capacity per data node.
 // sas_std / ssd_perf: fin-industry 2023 deck (24 disks, 2×RAID5 of 12 → 22 disks usable).
 // nvme_modern: 2025 mainstream practice (12 × 3.84T NVMe, RAID5 → 11 usable).

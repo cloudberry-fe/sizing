@@ -13,7 +13,10 @@
       <h1 data-i18n="title"></h1>
       <p class="subtitle" data-i18n="subtitle"></p>
     </div>
-    <button id="lang-toggle" type="button">EN</button>
+    <div class="header-actions">
+      <a href="methodology.html" class="nav-link" data-i18n="nav.method"></a>
+      <button id="lang-toggle" type="button">EN</button>
+    </div>
   </div>
 </header>
 <main>
@@ -68,6 +71,10 @@
         <label>
           <span data-i18n="adv.compression"></span>
           <input id="compression" type="number" min="1" step="0.5" value="2">
+        </label>
+        <label>
+          <span data-i18n="adv.concurrency"></span>
+          <select id="concurrency"></select>
         </label>
       </div>
     </details>
