@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  toTB, excelRound, excelEven, evenUp,
+  toTB, evenUp,
   nodeUsableTB, calcPhysical,
   recommendVMProfile, calcVM, calcCloud,
   calcEnterprise, summarize,
@@ -16,18 +16,6 @@ test('toTB converts units', () => {
   assert.equal(toTB(2, 'PB'), 2048);
 });
 
-test('excelRound: half away from zero (positive domain)', () => {
-  assert.equal(excelRound(7.5), 8);
-  assert.equal(excelRound(7.4), 7);
-});
-
-test('excelEven: smallest even integer >= x', () => {
-  assert.equal(excelEven(7.68), 8);
-  assert.equal(excelEven(8), 8);
-  assert.equal(excelEven(15.7), 16);
-  assert.equal(excelEven(0), 0);
-});
-
 test('evenUp: integers round odd up to even', () => {
   assert.equal(evenUp(19), 20);
   assert.equal(evenUp(18), 18);
@@ -35,9 +23,9 @@ test('evenUp: integers round odd up to even', () => {
 
 // --- Physical (fin-industry 2023 deck method) ---
 
-test('nodeUsableTB: x0.9 FS, x0.8 free, /(2+1/3) mirror+workspace — unified for all paths', () => {
-  assert.ok(Math.abs(nodeUsableTB(26.4) - 8.1463) < 0.001); // physical sas array
-  assert.ok(Math.abs(nodeUsableTB(2) - 0.6171) < 0.001);    // vm lite disk
+test('nodeUsableTB: x0.9 FS, x0.8 free, /(copies+1/3) — unified for all paths', () => {
+  assert.ok(Math.abs(nodeUsableTB(26.4) - 8.1463) < 0.001);       // mirrored (default)
+  assert.ok(Math.abs(nodeUsableTB(6, false) - 3.24) < 0.001);     // mirrorless: /(1+1/3)
 });
 
 test('Customer-deck regression: 160TB cr=2 sas_std -> 10 data nodes (deck says 10)', () => {
@@ -114,15 +102,24 @@ test('vm medium 30TB cr=2: 14 nodes, coordinator fixed 8vCPU/32G', () => {
 
 // --- Cloud (schemes) ---
 
-test('cloud aws_ebs 20TB cr=2: r5.4xlarge, storage-bound 8 nodes', () => {
+test('cloud aws_ebs 20TB cr=2: mirrorless on managed disks, compute-bound 5 nodes', () => {
   const r = calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'aws_ebs' });
   const dn = role(r, 'datanode');
   assert.equal(dn.instance, 'r5.4xlarge');
-  assert.equal(r.binding.storageNodes, 6); // ceil(10/1.851)
+  assert.equal(r.binding.storageNodes, 4); // ceil(10 / (6*0.54)=3.24) — no mirror copy
   assert.equal(r.binding.computeNodes, 5); // ceil(10 / min(16/8, 128/32)=2)
-  assert.equal(dn.count, 6);
+  assert.equal(dn.count, 5);               // no evenUp without mirrors
+  assert.equal(r.layout.mirrors, 0);
+  assert.ok(dn.bom.some(b => b.labelKey === 'bom.layout' && b.value === '2 primary'));
   assert.equal(role(r, 'coordinator').instance, 'r5.xlarge');
   assert.ok(r.roles.some(x => x.key === 'oss'));
+});
+
+test('vm mirrorless toggle: distributed storage drops mirror copy and even rule', () => {
+  const r = calcVM({ dataTB: 10, compressionRatio: 1, profileId: 'lite', mirrored: false });
+  assert.equal(r.binding.storageNodes, 10); // ceil(10 / (2*0.54)=1.08)
+  assert.equal(role(r, 'datanode').count, 10);
+  assert.equal(r.layout.mirrors, 0);
 });
 
 test('cloud aws_local (i3en) 20TB cr=1: compute-bound 20 nodes (8 vCPU quota)', () => {

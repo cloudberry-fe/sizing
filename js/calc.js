@@ -6,14 +6,6 @@ export function toTB(value, unit) {
   return value;
 }
 
-export function excelRound(x) {
-  return Math.round(x); // positive inputs only
-}
-
-export function excelEven(x) {
-  return Math.ceil(x / 2) * 2;
-}
-
 export function evenUp(n) {
   return n % 2 ? n + 1 : n;
 }
@@ -31,18 +23,21 @@ export function segLayoutFor(cpu, memGB, concurrencyFactor = 1) {
 }
 
 function layoutBom(layout, perSegTB, memGB) {
-  const lines = [{ labelKey: 'bom.layout', value: `${layout.primaries} primary + ${layout.mirrors} mirror` }];
+  const layoutText = layout.mirrors ? `${layout.primaries} primary + ${layout.mirrors} mirror` : `${layout.primaries} primary`;
+  const lines = [{ labelKey: 'bom.layout', value: layoutText }];
   if (perSegTB != null) lines.push({ labelKey: 'bom.perseg', value: `≈ ${perSegTB.toFixed(1)} TB` });
   if (memGB != null) lines.push({ labelKey: 'bom.segmem', value: `${Math.floor(memGB / layout.primaries)}G` });
   return lines;
 }
 
 // Unified per-node usable capacity, every discount applied exactly once:
-// ×0.9 OS/FS overhead, ×0.8 keep 20% free, ÷(2 + 1/3) mirror + workspace.
+// ×0.9 OS/FS overhead, ×0.8 keep 20% free, ÷(copies + 1/3 workspace) where
+// copies = 2 with segment mirroring, 1 when redundancy is provided by the
+// storage layer (distributed storage / replicated cloud disks).
 // Same formula for every Lightning path; physical passes post-RAID arrayTB,
 // VM/cloud pass nominal data-disk capacity.
-export function nodeUsableTB(nominalTB) {
-  return nominalTB * 0.9 * 0.8 / (2 + 1 / 3);
+export function nodeUsableTB(nominalTB, mirrored = true) {
+  return nominalTB * 0.9 * 0.8 / ((mirrored ? 2 : 1) + 1 / 3);
 }
 
 export function calcPhysical({ dataTB, compressionRatio, presetId, concurrencyFactor = 1 }) {
@@ -89,14 +84,16 @@ export function recommendVMProfile(dataTB) {
   return VM_PROFILES.find(p => dataTB <= p.maxTB);
 }
 
-export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor = 1 }) {
+export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor = 1, mirrored = true }) {
   const p = VM_PROFILES.find(x => x.id === profileId);
-  const usable = nodeUsableTB(p.storageTB);
+  const usable = nodeUsableTB(p.storageTB, mirrored);
   const onDiskTB = dataTB / compressionRatio;
-  const layout = segLayoutFor(p.vcpu, p.memGB, concurrencyFactor);
+  const layout = { ...segLayoutFor(p.vcpu, p.memGB, concurrencyFactor) };
+  if (!mirrored) layout.mirrors = 0;
   const storageNodes = Math.max(2, Math.ceil(onDiskTB / usable));
   const computeNodes = Math.ceil(onDiskTB / layout.capacity); // 1TB per segment-quota
-  const n = { usable, storageNodes, computeNodes, dataNodes: evenUp(Math.max(storageNodes, computeNodes)) };
+  const rawNodes = Math.max(storageNodes, computeNodes);
+  const n = { usable, storageNodes, computeNodes, dataNodes: mirrored ? evenUp(rawNodes) : rawNodes };
   const perSegTB = onDiskTB / (n.dataNodes * layout.primaries);
   return {
     product: 'lightning',
@@ -105,7 +102,7 @@ export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor 
       { key: 'coordinator', count: 2, cpu: VM_COORD.vcpu, memGB: VM_COORD.memGB,
         storageTB: VM_COORD.storageTB, cpuUnitKey: 'unit.vcpu', noteKey: 'note.coord.vm' },
       { key: 'datanode', count: n.dataNodes, cpu: p.vcpu, memGB: p.memGB,
-        storageTB: p.storageTB, cpuUnitKey: 'unit.vcpu', noteKey: 'note.datanode.vm',
+        storageTB: p.storageTB, cpuUnitKey: 'unit.vcpu', noteKey: mirrored ? 'note.datanode.vm' : 'note.datanode.nomirror',
         bom: [
           { labelKey: 'bom.datadisk', value: `${p.storageTB}TB SSD` },
           { labelKey: 'bom.throughput', value: p.throughput },
@@ -123,12 +120,15 @@ export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor 
 export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFactor = 1 }) {
   const s = CLOUD_SCHEMES.find(x => x.id === schemeId);
   const seg = s.segment;
-  const usable = nodeUsableTB(seg.storageTB);
+  const mirrored = s.mirrored !== false;
+  const usable = nodeUsableTB(seg.storageTB, mirrored);
   const onDiskTB = dataTB / compressionRatio;
-  const layout = segLayoutFor(seg.vcpu, seg.memGB, concurrencyFactor);
+  const layout = { ...segLayoutFor(seg.vcpu, seg.memGB, concurrencyFactor) };
+  if (!mirrored) layout.mirrors = 0;
   const storageNodes = Math.max(2, Math.ceil(onDiskTB / usable));
   const computeNodes = Math.ceil(onDiskTB / layout.capacity); // 1TB per segment-quota
-  const n = { usable, storageNodes, computeNodes, dataNodes: evenUp(Math.max(storageNodes, computeNodes)) };
+  const rawNodes = Math.max(storageNodes, computeNodes);
+  const n = { usable, storageNodes, computeNodes, dataNodes: mirrored ? evenUp(rawNodes) : rawNodes };
   const perSegTB = onDiskTB / (n.dataNodes * layout.primaries);
   return {
     product: 'lightning',
@@ -140,7 +140,7 @@ export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFacto
         bom: [{ labelKey: 'bom.datadisk', value: s.coordinator.diskDesc }] },
       { key: 'datanode', count: n.dataNodes, cpu: seg.vcpu, memGB: seg.memGB,
         storageTB: seg.storageTB, instance: seg.instance,
-        cpuUnitKey: 'unit.vcpu', noteKey: s.noteKey || 'note.datanode.vm',
+        cpuUnitKey: 'unit.vcpu', noteKey: s.noteKey || (mirrored ? 'note.datanode.vm' : 'note.datanode.nomirror'),
         bom: [{ labelKey: 'bom.datadisk', value: seg.diskDesc }, ...layoutBom(layout, perSegTB, seg.memGB)] },
       { key: 'oss', count: 1, cpu: null, memGB: null, storageTB: null,
         instance: s.oss, noteKey: 'note.oss' },

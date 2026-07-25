@@ -73,14 +73,16 @@ computeNodes = CEIL( onDiskTB ÷ perNodeTB )</pre>
 <p class="en">Applicable concurrency: ≤80 active statements of mixed BI at f=1; plan 5–10 per segment for heavyweight analytics. Coordinators do not follow this table — use the fixed specs given per path.</p>
 
 <h3><span class="zh">存储资源约束（统一公式）</span><span class="en">Storage constraint (unified formula)</span></h3>
-<p class="zh">所有 MPP 路径使用同一个单节点可用容量公式，每个折扣项只出现一次：×0.9 操作系统与文件系统开销、×0.8 预留 20% 空闲、÷(2 + 1/3) 镜像两份加 1/3 工作空间。物理机代入 RAID 后阵列容量，虚拟机/云主机代入数据盘标称容量：</p>
-<p class="en">Every MPP path uses one per-node usable-capacity formula, each discount applied exactly once: ×0.9 OS/filesystem overhead, ×0.8 to keep 20% free, ÷(2 + 1/3) for the mirror pair plus workspace. Physical passes post-RAID array capacity; VM/cloud pass nominal data-disk capacity:</p>
-<pre>usableTB     = nominalTB × 0.9 × 0.8 ÷ (2 + 1/3)     ≈ nominalTB × 0.31
+<p class="zh">所有 MPP 路径使用同一个单节点可用容量公式，每个折扣项只出现一次：×0.9 操作系统与文件系统开销、×0.8 预留 20% 空闲、÷(副本数 + 1/3 工作空间)。<strong>副本数取 2（segment 自带 mirror）或 1（冗余由存储层提供——云盘多副本、vSAN 等分布式存储，此时无需 mirror，可用容量近乎翻倍）</strong>。物理机代入 RAID 后阵列容量，虚拟机/云主机代入数据盘标称容量：</p>
+<p class="en">Every MPP path uses one per-node usable-capacity formula, each discount applied exactly once: ×0.9 OS/filesystem overhead, ×0.8 to keep 20% free, ÷(copies + 1/3 workspace). <strong>Copies is 2 with segment mirroring, or 1 when the storage layer provides redundancy (replicated cloud disks, vSAN-style distributed storage — no mirrors needed, usable capacity nearly doubles)</strong>. Physical passes post-RAID array capacity; VM/cloud pass nominal data-disk capacity:</p>
+<pre class="zh">usableTB     = nominalTB × 0.9 × 0.8 ÷ (copies + 1/3)   # 有 mirror ≈ ×0.31 / 无 mirror ≈ ×0.54
+storageNodes = max( 2, CEIL( onDiskTB ÷ usableTB ) )</pre>
+<pre class="en">usableTB     = nominalTB × 0.9 × 0.8 ÷ (copies + 1/3)   # mirrored ≈ ×0.31 / mirrorless ≈ ×0.54
 storageNodes = max( 2, CEIL( onDiskTB ÷ usableTB ) )</pre>
 
 <h3><span class="zh">最终节点数</span><span class="en">Final node count</span></h3>
-<p class="zh">存储与计算两个维度分别算出所需节点数，取<strong>较大者</strong>，再向上取偶数（MPP 习惯，便于 primary/mirror 对称分布）。结果页的徽标会标明是存储受限还是计算受限。</p>
-<p class="en">Storage-driven and compute-driven node counts are derived independently; the <strong>larger</strong> wins, then rounds up to an even number (MPP convention for symmetric primary/mirror placement). The result badge shows which constraint binds.</p>
+<p class="zh">存储与计算两个维度分别算出所需节点数，取<strong>较大者</strong>；带 mirror 的部署再向上取偶数（便于 primary/mirror 对称分布），无 mirror 的部署不取偶。结果页的徽标会标明是存储受限还是计算受限。</p>
+<p class="en">Storage-driven and compute-driven node counts are derived independently; the <strong>larger</strong> wins. Mirrored deployments then round up to an even number (for symmetric primary/mirror placement); mirrorless deployments do not. The result badge shows which constraint binds.</p>
 <pre>nodes = roundUpToEven( max( storageNodes, computeNodes ) )</pre>
 
 <h2>3. <span class="zh">物理机</span><span class="en">Physical</span> · Cloudberry MPP</h2>
@@ -135,8 +137,8 @@ gp_vmem_protect_limit      = gp_vmem ÷ max_acting_primary_segments
 statement_mem              = gp_vmem_protect_limit × 0.9 ÷ expected_concurrency</pre>
 
 <h2>4. <span class="zh">虚拟机</span><span class="en">VM</span> · Cloudberry MPP</h2>
-<p class="zh">存储节点数用统一公式，nominalTB 代入虚拟机数据盘标称容量（与 2025 部署规范的 0.7÷(2+1/3) 口径数值上基本一致，差异 ≈3%）。</p>
-<p class="en">Storage nodes use the unified formula with nominalTB = the VM's nominal data-disk capacity (numerically within ~3% of the 2025 deployment spec's 0.7÷(2+1/3) convention).</p>
+<p class="zh">存储节点数用统一公式，nominalTB 代入虚拟机数据盘标称容量。若底层为 vSAN 等分布式存储（高级选项勾选「冗余由存储层提供」），则不部署 mirror——存储层已有多副本，segment 再镜像纯属浪费，可用容量近乎翻倍。</p>
+<p class="en">Storage nodes use the unified formula with nominalTB = the VM's nominal data-disk capacity. On distributed storage such as vSAN (advanced option "redundancy at the storage layer"), no mirrors are deployed — the storage layer already keeps multiple replicas, so segment mirroring would be pure waste; usable capacity nearly doubles.</p>
 <p class="zh">三档虚拟机规格（1:4 内存比，每档 = N × 单 segment 的 8c/32G；如需更多缓存/并发余量可升到 1:8 内存优化型，不影响节点数）。按数据量自动推荐，可手动覆盖：</p>
 <p class="en">Three VM profiles (1:4 memory ratio — each tier is exactly N × the 8c/32G per-segment quota; a 1:8 memory-optimized variant adds cache/concurrency headroom without changing node counts). Auto-recommended by data size, manual override available:</p>
 <div class="table-wrap"><table>
@@ -160,12 +162,12 @@ statement_mem              = gp_vmem_protect_limit × 0.9 ÷ expected_concurrenc
 <p class="zh">节点数公式与虚拟机相同，单节点存储取所选云方案的数据盘容量。每个云厂商提供两套方案：</p>
 <p class="en">Same node-count formula as VM, with per-node storage from the selected cloud scheme. Two schemes per provider:</p>
 <ul class="zh">
-<li><strong>云盘方案</strong>（云平台部署最佳实践）：AWS r5.4xlarge + 3×EBS ST1/GP3；Azure Standard_E16s_v5 + 3×P40 Premium SSD；GCP n2-highmem-8 + pd-ssd。数据可靠性依赖云盘，支持快照。</li>
-<li><strong>本地盘方案</strong>（生产部署实践）：AWS i3en.2xlarge、Azure Standard_L8s_v3、GCP c3d-standard-8-lssd 本地 NVMe。吞吐更高、成本更低，可靠性依赖 primary/mirror 双副本。</li>
+<li><strong>云盘方案</strong>（云平台部署最佳实践）：AWS r5.4xlarge + 3×EBS ST1/GP3；Azure Standard_E16s_v5 + 3×P40 Premium SSD；GCP n2-highmem-8 + pd-ssd。云盘自身多副本且支持快照，因此<strong>不部署 mirror</strong>，可用容量近乎翻倍。</li>
+<li><strong>本地盘方案</strong>（生产部署实践）：AWS i3en.2xlarge、Azure Standard_L8s_v3、GCP c3d-standard-8-lssd 本地 NVMe。吞吐更高、成本更低；本地盘随主机失效，因此<strong>保留 primary/mirror 双副本</strong>。</li>
 </ul>
 <ul class="en">
-<li><strong>Managed-disk schemes</strong> (cloud deployment best practice): AWS r5.4xlarge + 3×EBS ST1/GP3; Azure Standard_E16s_v5 + 3×P40 Premium SSD; GCP n2-highmem-8 + pd-ssd. Durability from cloud disks, snapshot-capable.</li>
-<li><strong>Local-NVMe schemes</strong> (production practice): AWS i3en.2xlarge, Azure Standard_L8s_v3, GCP c3d-standard-8-lssd. Higher throughput, lower cost; durability relies on primary/mirror.</li>
+<li><strong>Managed-disk schemes</strong> (cloud deployment best practice): AWS r5.4xlarge + 3×EBS ST1/GP3; Azure Standard_E16s_v5 + 3×P40 Premium SSD; GCP n2-highmem-8 + pd-ssd. Managed disks are replicated and snapshot-capable, so <strong>no segment mirrors are deployed</strong> — usable capacity nearly doubles.</li>
+<li><strong>Local-NVMe schemes</strong> (production practice): AWS i3en.2xlarge, Azure Standard_L8s_v3, GCP c3d-standard-8-lssd. Higher throughput, lower cost; local disks die with the host, so <strong>primary/mirror is kept</strong>.</li>
 </ul>
 <p class="zh">附加建议：Azure 使用 UDP interconnect 并预留端口 65330；GCP 上建议用更多的小节点（相对 AWS）。</p>
 <p class="en">Extra guidance: on Azure use the UDP interconnect and reserve port 65330; on GCP prefer more, smaller nodes (vs AWS).</p>

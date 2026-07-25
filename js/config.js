@@ -64,10 +64,12 @@ export const VM_PROFILES = [
 export const VM_COORD = { vcpu: 8, memGB: 32, storageTB: 0.5 };
 
 // Cloud schemes: per provider one managed-disk scheme (cloud deployment
-// best practice) and one local-NVMe scheme (production deployment practice).
+// best practice; mirrored:false — managed disks are replicated and
+// snapshot-capable, so segment mirroring is unnecessary) and one local-NVMe
+// scheme (production practice; local disks die with the host, mirror kept).
 export const CLOUD_SCHEMES = [
   {
-    id: 'aws_ebs', provider: 'AWS', kindKey: 'scheme.managed', sourceKey: 'source.cloudbp',
+    id: 'aws_ebs', mirrored: false, provider: 'AWS', kindKey: 'scheme.managed', sourceKey: 'source.cloudbp',
     network: '10–25 Gbps (ENA)', oss: 'Amazon S3',
     coordinator: { instance: 'r5.xlarge', vcpu: 4, memGB: 32, storageTB: 0.5, diskDesc: '1 × 500GB EBS GP3' },
     segment:     { instance: 'r5.4xlarge', vcpu: 16, memGB: 128, storageTB: 6, diskDesc: '3 × 2TB EBS ST1/GP3' },
@@ -79,7 +81,7 @@ export const CLOUD_SCHEMES = [
     segment:     { instance: 'i3en.2xlarge', vcpu: 8, memGB: 64, storageTB: 5, diskDesc: '2 × 2.5TB NVMe local' },
   },
   {
-    id: 'azure_premium', provider: 'Azure', kindKey: 'scheme.managed', sourceKey: 'source.cloudbp',
+    id: 'azure_premium', mirrored: false, provider: 'Azure', kindKey: 'scheme.managed', sourceKey: 'source.cloudbp',
     network: 'Accelerated Networking, UDP interconnect', oss: 'Azure Blob',
     coordinator: { instance: 'Standard_E8s_v5', vcpu: 8, memGB: 64, storageTB: 1, diskDesc: '1 × P30 1TB Premium SSD' },
     segment:     { instance: 'Standard_E16s_v5', vcpu: 16, memGB: 128, storageTB: 6, diskDesc: '3 × P40 2TB Premium SSD' },
@@ -92,7 +94,7 @@ export const CLOUD_SCHEMES = [
     segment:     { instance: 'Standard_L8s_v3', vcpu: 8, memGB: 64, storageTB: 1.92, diskDesc: '1 × 1.92TB NVMe local' },
   },
   {
-    id: 'gcp_pd', provider: 'GCP', kindKey: 'scheme.managed', sourceKey: 'source.cloudbp',
+    id: 'gcp_pd', mirrored: false, provider: 'GCP', kindKey: 'scheme.managed', sourceKey: 'source.cloudbp',
     network: '10–25 Gbps', oss: 'Google Cloud Storage',
     coordinator: { instance: 'n2-highmem-8', vcpu: 8, memGB: 64, storageTB: 0.5, diskDesc: '1 × 500GB pd-ssd' },
     segment:     { instance: 'n2-highmem-8', vcpu: 8, memGB: 64, storageTB: 4, diskDesc: '1 × 4TB pd-ssd' },

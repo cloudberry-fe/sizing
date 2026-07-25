@@ -98,7 +98,7 @@ function compute() {
   if (state.infra === 'physical') {
     r = calcPhysical({ dataTB, compressionRatio, presetId: state.presetId, concurrencyFactor });
   } else if (state.infra === 'vm') {
-    r = calcVM({ dataTB, compressionRatio, profileId: activeVMProfileId(dataTB), concurrencyFactor });
+    r = calcVM({ dataTB, compressionRatio, profileId: activeVMProfileId(dataTB), concurrencyFactor, mirrored: !$('vm-distributed').checked });
   } else if (state.infra === 'cloud') {
     r = calcCloud({ dataTB, compressionRatio, schemeId: state.schemeId, concurrencyFactor });
   } else {
@@ -186,7 +186,7 @@ $('lang-toggle').addEventListener('click', () => {
   compute();
 });
 
-['data-size', 'data-unit', 'compression', 'concurrency']
+['data-size', 'data-unit', 'compression', 'concurrency', 'vm-distributed']
   .forEach(id => $(id).addEventListener('input', compute));
 
 applyLang();
