@@ -79,7 +79,7 @@ export const STRINGS = {
   'note.coord.vm':         { zh: '主备模式提供 HA', en: 'Active/standby HA' },
   'note.datanode.vm':      { zh: 'primary+mirror；SSD 优先；XFS', en: 'primary+mirror; SSD preferred; XFS' },
   'note.azure.extra':      { zh: 'primary+mirror；建议 UDP interconnect，预留端口 65330', en: 'primary+mirror; use UDP interconnect, reserve port 65330' },
-  'note.gcp.extra':        { zh: 'primary+mirror；GCP 官方建议用更多小节点（相对 AWS）', en: 'primary+mirror; GCP guidance: more, smaller nodes vs AWS' },
+  'note.gcp.extra':        { zh: 'primary+mirror；GCP 上建议用更多小节点（相对 AWS）', en: 'primary+mirror; prefer more, smaller nodes on GCP (vs AWS)' },
   'note.oss':              { zh: '按需扩容，S3 协议接口', en: 'On demand, S3-compatible API' },
   'note.unionstore':       { zh: 'PageServer×1 + SafeKeeper×3，LocalPV', en: 'PageServer x1 + SafeKeeper x3, LocalPV' },
   'note.metaproxy':        { zh: 'Metadata-Proxy ×1', en: 'Metadata-Proxy x1' },

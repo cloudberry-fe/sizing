@@ -18,19 +18,16 @@ export function evenUp(n) {
   return n % 2 ? n + 1 : n;
 }
 
-function computeNodesFor(onDiskTB, vcpu, memGB, concurrencyFactor = 1) {
-  const perNodeTB = Math.min(vcpu / (COMPUTE_RULE.vcpuPerTB * concurrencyFactor),
-                             memGB / (COMPUTE_RULE.memGBPerTB * concurrencyFactor));
-  return Math.ceil(onDiskTB / perNodeTB);
-}
-
-// Segments per host: each primary segment gets 8 vCPU/cores + 32G (scaled by
-// concurrency factor); mirrors are co-hosted 1:1 (spread mirroring).
+// One quota rule for every path: each primary segment gets 8 OS-visible
+// logical cores + 32G (scaled by the concurrency factor). capacity may be
+// fractional (a node smaller than one full quota contributes
+// proportionally); the displayed layout is an integer >= 1. Mirrors are
+// co-hosted 1:1 (spread mirroring).
 export function segLayoutFor(cpu, memGB, concurrencyFactor = 1) {
-  const primaries = Math.max(1, Math.min(
-    Math.floor(cpu / (COMPUTE_RULE.vcpuPerTB * concurrencyFactor)),
-    Math.floor(memGB / (COMPUTE_RULE.memGBPerTB * concurrencyFactor))));
-  return { primaries, mirrors: primaries };
+  const capacity = Math.min(cpu / (COMPUTE_RULE.vcpuPerTB * concurrencyFactor),
+                            memGB / (COMPUTE_RULE.memGBPerTB * concurrencyFactor));
+  const primaries = Math.max(1, Math.floor(capacity));
+  return { primaries, mirrors: primaries, capacity };
 }
 
 function layoutBom(layout, perSegTB) {
@@ -51,10 +48,10 @@ export function calcPhysical({ dataTB, compressionRatio, presetId, concurrencyFa
   const p = PHYSICAL_PRESETS.find(x => x.id === presetId);
   const onDiskTB = dataTB / compressionRatio;
   const usable = nodeUsableTB(p.arrayTB);
-  const storageNodes = Math.max(2, Math.ceil(onDiskTB / usable));
-  const computeNodes = computeNodesFor(onDiskTB, p.cores, p.memGB, concurrencyFactor);
-  const segNodes = evenUp(Math.max(storageNodes, computeNodes));
   const layout = segLayoutFor(p.cores, p.memGB, concurrencyFactor);
+  const storageNodes = Math.max(2, Math.ceil(onDiskTB / usable));
+  const computeNodes = Math.ceil(onDiskTB / layout.capacity); // 1TB per segment-quota
+  const segNodes = evenUp(Math.max(storageNodes, computeNodes));
   const perSegTB = onDiskTB / (segNodes * layout.primaries);
   return {
     product: 'lightning',
@@ -91,20 +88,15 @@ export function recommendVMProfile(dataTB) {
   return VM_PROFILES.find(p => dataTB <= p.maxTB);
 }
 
-function lightningNodes({ dataTB, compressionRatio, vcpu, memGB, storageTB, concurrencyFactor = 1 }) {
-  const usable = nodeUsableTB(storageTB);
-  const onDiskTB = dataTB / compressionRatio;
-  const storageNodes = Math.max(2, Math.ceil(onDiskTB / usable));
-  const computeNodes = computeNodesFor(onDiskTB, vcpu, memGB, concurrencyFactor);
-  const dataNodes = evenUp(Math.max(storageNodes, computeNodes));
-  return { usable, storageNodes, computeNodes, dataNodes };
-}
-
 export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor = 1 }) {
   const p = VM_PROFILES.find(x => x.id === profileId);
-  const n = lightningNodes({ dataTB, compressionRatio, vcpu: p.vcpu, memGB: p.memGB, storageTB: p.storageTB, concurrencyFactor });
+  const usable = nodeUsableTB(p.storageTB);
+  const onDiskTB = dataTB / compressionRatio;
   const layout = segLayoutFor(p.vcpu, p.memGB, concurrencyFactor);
-  const perSegTB = (dataTB / compressionRatio) / (n.dataNodes * layout.primaries);
+  const storageNodes = Math.max(2, Math.ceil(onDiskTB / usable));
+  const computeNodes = Math.ceil(onDiskTB / layout.capacity); // 1TB per segment-quota
+  const n = { usable, storageNodes, computeNodes, dataNodes: evenUp(Math.max(storageNodes, computeNodes)) };
+  const perSegTB = onDiskTB / (n.dataNodes * layout.primaries);
   return {
     product: 'lightning',
     layout,
@@ -130,9 +122,13 @@ export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor 
 export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFactor = 1 }) {
   const s = CLOUD_SCHEMES.find(x => x.id === schemeId);
   const seg = s.segment;
-  const n = lightningNodes({ dataTB, compressionRatio, vcpu: seg.vcpu, memGB: seg.memGB, storageTB: seg.storageTB, concurrencyFactor });
+  const usable = nodeUsableTB(seg.storageTB);
+  const onDiskTB = dataTB / compressionRatio;
   const layout = segLayoutFor(seg.vcpu, seg.memGB, concurrencyFactor);
-  const perSegTB = (dataTB / compressionRatio) / (n.dataNodes * layout.primaries);
+  const storageNodes = Math.max(2, Math.ceil(onDiskTB / usable));
+  const computeNodes = Math.ceil(onDiskTB / layout.capacity); // 1TB per segment-quota
+  const n = { usable, storageNodes, computeNodes, dataNodes: evenUp(Math.max(storageNodes, computeNodes)) };
+  const perSegTB = onDiskTB / (n.dataNodes * layout.primaries);
   return {
     product: 'lightning',
     layout,

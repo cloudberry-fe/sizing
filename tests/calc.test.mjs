@@ -53,11 +53,11 @@ test('160TB cr=2 ssd_perf -> 14 nodes (deck said 12; unified formula adds worksp
   assert.equal(r.binding.type, 'storage');
 });
 
-test('physical nvme_modern is compute-bound at 160TB cr=2', () => {
+test('physical nvme_modern 160TB cr=2: storage-bound 8 nodes (128 logical cores)', () => {
   const r = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'nvme_modern' });
   assert.equal(r.binding.storageNodes, 7);  // ceil(80 / 13.03)
-  assert.equal(r.binding.computeNodes, 10); // ceil(80/8)
-  assert.equal(role(r, 'segment').count, 10);
+  assert.equal(r.binding.computeNodes, 5);  // ceil(80 / min(128/8, 1024/32)=16)
+  assert.equal(role(r, 'segment').count, 8);
 });
 
 test('physical tiny data floors at 2 segment nodes', () => {
@@ -71,10 +71,10 @@ test('physical capacityTB inverts the formula', () => {
   assert.ok(Math.abs(r.capacityTB - 162.93) < 0.01);
 });
 
-test('physical tie-break: equal storage/compute nodes -> storage-bound (40TB cr=1 sas_std)', () => {
-  const r = calcPhysical({ dataTB: 40, compressionRatio: 1, presetId: 'sas_std' });
+test('physical tie-break: equal storage/compute nodes -> storage-bound (40TB cr=1 sas_std f=2)', () => {
+  const r = calcPhysical({ dataTB: 40, compressionRatio: 1, presetId: 'sas_std', concurrencyFactor: 2 });
   assert.equal(r.binding.storageNodes, 5); // ceil(40 / 8.146)
-  assert.equal(r.binding.computeNodes, 5); // ceil(40/8)
+  assert.equal(r.binding.computeNodes, 5); // ceil(40 / min(128/16, 512/64)=8)
   assert.equal(r.binding.type, 'storage');
   assert.equal(role(r, 'segment').count, 6);
 });
@@ -119,16 +119,16 @@ test('cloud aws_ebs 20TB cr=2: r5.4xlarge, storage-bound 8 nodes', () => {
   const dn = role(r, 'datanode');
   assert.equal(dn.instance, 'r5.4xlarge');
   assert.equal(r.binding.storageNodes, 6); // ceil(10/1.851)
-  assert.equal(r.binding.computeNodes, 5); // ceil(10/min(2,4))
+  assert.equal(r.binding.computeNodes, 5); // ceil(10 / min(16/8, 128/32)=2)
   assert.equal(dn.count, 6);
   assert.equal(role(r, 'coordinator').instance, 'r5.xlarge');
   assert.ok(r.roles.some(x => x.key === 'oss'));
 });
 
-test('cloud aws_local (i3en) 20TB cr=1: compute-bound 20 nodes', () => {
+test('cloud aws_local (i3en) 20TB cr=1: compute-bound 20 nodes (8 vCPU quota)', () => {
   const r = calcCloud({ dataTB: 20, compressionRatio: 1, schemeId: 'aws_local' });
   assert.equal(r.binding.storageNodes, 13); // ceil(20/1.543)
-  assert.equal(r.binding.computeNodes, 20);
+  assert.equal(r.binding.computeNodes, 20); // ceil(20 / min(8/8, 64/32)=1)
   assert.equal(role(r, 'datanode').count, 20);
 });
 
@@ -211,9 +211,10 @@ test('concurrency factor scales compute constraint only (default unchanged)', ()
   const def = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'sas_std' });
   const high = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'sas_std', concurrencyFactor: 2 });
   assert.equal(def.roles.find(x => x.key === 'segment').count, 10);
-  assert.equal(high.binding.computeNodes, 20); // ceil(80 / min(64/16, 512/64))
+  assert.equal(def.binding.computeNodes, 5);   // ceil(80 / 16)
+  assert.equal(high.binding.computeNodes, 10); // ceil(80 / min(128/16, 512/64)=8)
   assert.equal(high.binding.storageNodes, def.binding.storageNodes); // storage math untouched
-  assert.equal(high.roles.find(x => x.key === 'segment').count, 20);
+  assert.equal(high.roles.find(x => x.key === 'segment').count, 10); // storage still binds
 });
 
 test('concurrency factor on vm path (mid=1.5)', () => {
@@ -222,25 +223,33 @@ test('concurrency factor on vm path (mid=1.5)', () => {
   assert.equal(r.binding.storageNodes, 17); // unchanged, still storage-bound
 });
 
-test('segment layout: 8P+8M per physical host at standard concurrency', () => {
+test('segment layout: 16P+16M per physical host (128 logical cores, 1:4 mem)', () => {
   const r = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'sas_std' });
-  assert.deepEqual(r.layout, { primaries: 8, mirrors: 8 });
-  // 10 nodes × 8 primaries = 80 primaries for 80TB on-disk ≈ 1TB each
+  assert.equal(r.layout.primaries, 16); // min(128/8, 512/32)
+  assert.equal(r.layout.mirrors, 16);
+  // 10 nodes × 16 primaries = 160 primaries for 80TB on-disk ≈ 0.5TB each
   const seg = r.roles.find(x => x.key === 'segment');
   const perSeg = seg.bom.find(b => b.labelKey === 'bom.perseg');
-  assert.equal(perSeg.value, '≈ 1.0 TB');
-  assert.ok(seg.bom.some(b => b.labelKey === 'bom.layout' && b.value === '8 primary + 8 mirror'));
+  assert.equal(perSeg.value, '≈ 0.5 TB');
+  assert.ok(seg.bom.some(b => b.labelKey === 'bom.layout' && b.value === '16 primary + 16 mirror'));
 });
 
 test('segment layout scales down with concurrency factor', () => {
   const r = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'sas_std', concurrencyFactor: 2 });
-  assert.deepEqual(r.layout, { primaries: 4, mirrors: 4 }); // min(64/16, 512/64)
+  assert.equal(r.layout.primaries, 8); // min(128/16, 512/64)
 });
 
 test('segment layout on vm/cloud matches GP 1-4 per VM guidance', () => {
   assert.equal(calcVM({ dataTB: 10, compressionRatio: 2, profileId: 'lite' }).layout.primaries, 1);
   assert.equal(calcVM({ dataTB: 30, compressionRatio: 2, profileId: 'medium' }).layout.primaries, 2);
   assert.equal(calcVM({ dataTB: 100, compressionRatio: 2, profileId: 'large' }).layout.primaries, 3);
-  assert.equal(calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'aws_ebs' }).layout.primaries, 2);
-  assert.equal(calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'azure_local' }).layout.primaries, 1);
+  assert.equal(calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'aws_ebs' }).layout.primaries, 2);  // min(16/8, 128/32)
+  assert.equal(calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'azure_local' }).layout.primaries, 1); // min(8/8, 64/32)
+});
+
+test('one quota rule everywhere: concurrency scales cloud layout too', () => {
+  const std = calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'aws_ebs' });
+  const xhigh = calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'aws_ebs', concurrencyFactor: 2 });
+  assert.equal(std.layout.primaries, 2);   // min(16/8, 128/32)
+  assert.equal(xhigh.layout.primaries, 1); // min(16/16, 128/64)
 });

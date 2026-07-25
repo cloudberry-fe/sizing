@@ -16,7 +16,7 @@ Zero-build vanilla JS (ES modules):
 
 - `js/config.js` — ALL sizing rule data: `PHYSICAL_PRESETS` (基础款/高吞吐款/NVMe现代款,
   full BOM per node), `VM_PROFILES` (Lite/Medium/Large), `CLOUD_SCHEMES` (per provider:
-  managed-disk per best-practice docs + local-NVMe per HashData spec), enterprise tiers, the
+  managed-disk per cloud best practice + local-NVMe per production practice), the
   8vCPU+32G-per-TB compute rule. Tuning numbers = edit this file only.
 - `js/calc.js` — pure functions, no DOM. Four paths: `calcPhysical` (customer-deck method:
   need = onDisk×2/0.9/0.8, nodes = evenUp(max(storage, compute))), `calcVM`
