@@ -151,8 +151,14 @@ statement_mem              = gp_vmem_protect_limit × 0.9 ÷ expected_concurrenc
 <h2>6. <span class="zh">容器 / K8s · 存算分离</span><span class="en">Container / K8s · Compute-storage separation</span></h2>
 <p class="zh">存算分离形态下数据本体在对象存储（OSS，按需扩容），计算节点本地盘只是缓存/工作区。Segment 遵循与 MPP 路径完全相同的并发大原则：<strong>每 segment 管理 1 TB 数据，规格 = 8 vCPU / 32G × 并发系数</strong>（高级选项里的同一个并发规模选项：≤80 默认 ×1 / ≤120 ×1.5 / ≤160 ×2）。Segment 数量只由数据量决定，并发只影响单 segment 规格：</p>
 <p class="en">With compute-storage separation the data lives in object storage (OSS, scaled on demand) and local disks are cache/workspace only. Segments follow exactly the same concurrency principle as the MPP paths: <strong>each segment manages 1 TB with 8 vCPU / 32G × the concurrency factor</strong> (the same advanced-options selector: ≤80 default ×1 / ≤120 ×1.5 / ≤160 ×2). Segment count is driven by data size alone; concurrency only scales the per-segment spec:</p>
-<pre>segments    = max( 2, CEIL( dataTB ÷ 1TB ) )
-segmentSpec = (8 × f) vCPU / (32 × f) G / 500G cache</pre>
+<pre class="zh">segments    = max( 2, CEIL( dataTB ÷ 1TB ) )
+segmentSpec = (8 × f) vCPU / (32 × f) G
+本地缓存盘   = 1TB × 50% × f          # 标准 500G / 高 750G / 很高 1T</pre>
+<pre class="en">segments    = max( 2, CEIL( dataTB ÷ 1TB ) )
+segmentSpec = (8 × f) vCPU / (32 × f) G
+localCache  = 1TB × 50% × f          # std 500G / high 750G / very high 1T</pre>
+<p class="zh">存储的两层设计：<strong>OSS 容量 ≈ 业务数据量</strong>（该形态不启用压缩），按需扩展、不参与节点计算，结果页直接标出预期容量；<strong>segment 本地盘只是缓存 + 溢写空间</strong>，取所管数据的 50% 为基线并随并发系数放大——溢写文件量随并发查询数增长（500G–1T，与厂商规范区间一致）。</p>
+<p class="en">Two-layer storage design: <strong>OSS capacity ≈ business data size</strong> (compression is off in this form factor), scales on demand and never drives node counts — the result page states the expected capacity; <strong>segment local disks are cache + spill only</strong>, baselined at 50% of managed data and scaled by the concurrency factor, since spill volume grows with concurrent queries (500G–1T, matching the vendor spec range).</p>
 <p class="zh">Proxy 固定 16 vCPU / 64G（覆盖 ≤80 并发）；更高并发档通过 LB 自动增加第二个 Proxy 实例。固定平台组件：Meta 服务 6 实例（UnionStore ×4 + Metadata-Proxy + Storage-Broker）、WebConsole ×11 小容器、负载均衡、OSS。</p>
 <p class="en">The proxy is fixed at 16 vCPU / 64G (covers ≤80 concurrent); higher tiers add a second proxy instance behind the LB. Fixed platform components: 6 meta-service instances (UnionStore ×4 + Metadata-Proxy + Storage-Broker), WebConsole ×11 small containers, load balancer, OSS.</p>
 

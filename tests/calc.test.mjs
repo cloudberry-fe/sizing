@@ -157,13 +157,21 @@ test('enterprise: 1TB per segment, 8c/32G at standard concurrency', () => {
   assert.equal(role(r, 'proxy').count, 1);
 });
 
-test('enterprise concurrency factor scales segment spec, adds proxy instance', () => {
+test('enterprise concurrency factor scales segment spec, cache, proxy instances', () => {
   const r = calcEnterprise({ dataTB: 100, concurrencyFactor: 2 });
   const seg = role(r, 'segment');
   assert.equal(seg.count, 100);      // segment count driven by data, not concurrency
   assert.equal(seg.cpu, 16);
   assert.equal(seg.memGB, 64);
+  assert.equal(seg.storageTB, 1);    // cache 0.5 x factor 2
   assert.equal(role(r, 'proxy').count, 2);
+});
+
+test('enterprise: 500G cache at standard, OSS capacity shown', () => {
+  const r = calcEnterprise({ dataTB: 100 });
+  assert.equal(role(r, 'segment').storageTB, 0.5);
+  const oss = role(r, 'oss');
+  assert.ok(oss.bom.some(b => b.labelKey === 'bom.osscap' && b.value === '≈ 100 TB'));
 });
 
 test('enterprise floors at 2 segments and carries fixed platform roles', () => {

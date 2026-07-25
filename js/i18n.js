@@ -52,6 +52,8 @@ export const STRINGS = {
   'bom.nic':          { zh: '网卡', en: 'NIC' },
   'bom.throughput':   { zh: '盘吞吐要求', en: 'Disk throughput' },
   'bom.layout':       { zh: '段布局', en: 'Segment layout' },
+  'bom.cache':        { zh: '本地缓存盘', en: 'Local cache disk' },
+  'bom.osscap':       { zh: '容量需求（不启用压缩，按需扩展）', en: 'Capacity (uncompressed, scales on demand)' },
   'bom.perseg':       { zh: '每 primary 数据量', en: 'Data per primary' },
   'bom.host':         { zh: '宿主机要求', en: 'Host requirement' },
   'raid.2x12r5':      { zh: '每 12 块盘一组 RAID5，共 2 组（22 盘可用）', en: '2 × RAID5 groups of 12 (22 disks usable)' },

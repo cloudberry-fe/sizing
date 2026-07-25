@@ -158,18 +158,26 @@ export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFacto
 export function calcEnterprise({ dataTB, concurrencyFactor = 1 }) {
   const segments = Math.max(2, Math.ceil(dataTB / ENTERPRISE_SEGMENT.tbPerSegment));
   const proxyCount = concurrencyFactor > 1 ? 2 : 1;
+  // Local disk = cache + spill; spill grows with concurrent queries, so the
+  // cache scales with the concurrency factor (vendor spec range 500G-1T).
+  const cacheTB = ENTERPRISE_SEGMENT.tbPerSegment * ENTERPRISE_SEGMENT.cacheRatio * concurrencyFactor;
+  const fixed = ENTERPRISE_FIXED.map(r =>
+    r.key === 'oss' ? { ...r, bom: [{ labelKey: 'bom.osscap', value: `≈ ${Math.ceil(dataTB)} TB` }] } : r);
   return {
     product: 'enterprise',
     roles: [
-      ...ENTERPRISE_FIXED,
+      ...fixed,
       { key: 'proxy', count: proxyCount, cpu: ENTERPRISE_PROXY.vcpu, memGB: ENTERPRISE_PROXY.memGB,
         storageTB: ENTERPRISE_PROXY.storageTB, cpuUnitKey: 'unit.vcpu', noteKey: 'note.proxy' },
       { key: 'segment', count: segments,
         cpu: ENTERPRISE_SEGMENT.vcpuPerTB * concurrencyFactor,
         memGB: ENTERPRISE_SEGMENT.memGBPerTB * concurrencyFactor,
-        storageTB: ENTERPRISE_SEGMENT.storageTB, cpuUnitKey: 'unit.vcpu',
+        storageTB: cacheTB, cpuUnitKey: 'unit.vcpu',
         noteKey: 'note.segment.enterprise',
-        bom: [{ labelKey: 'bom.perseg', value: `${ENTERPRISE_SEGMENT.tbPerSegment} TB` }] },
+        bom: [
+          { labelKey: 'bom.perseg', value: `${ENTERPRISE_SEGMENT.tbPerSegment} TB` },
+          { labelKey: 'bom.cache', value: `${cacheTB >= 1 ? cacheTB + 'T' : cacheTB * 1024 + 'G'}` },
+        ] },
     ],
     binding: null,
     capacityTB: null,

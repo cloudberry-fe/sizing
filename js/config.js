@@ -106,7 +106,7 @@ export const CLOUD_SCHEMES = [
 // one segment per TB, 8 vCPU + 32G per segment at <=80 concurrent, scaled
 // by the shared concurrency factor. Proxy fixed at 16c/64G (covers <=80);
 // higher tiers add a second proxy instance behind the LB.
-export const ENTERPRISE_SEGMENT = { vcpuPerTB: 8, memGBPerTB: 32, tbPerSegment: 1, storageTB: 0.5 };
+export const ENTERPRISE_SEGMENT = { vcpuPerTB: 8, memGBPerTB: 32, tbPerSegment: 1, cacheRatio: 0.5 };
 export const ENTERPRISE_PROXY = { vcpu: 16, memGB: 64, storageTB: 0.5 };
 
 export const ENTERPRISE_FIXED = [

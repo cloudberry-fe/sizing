@@ -69,15 +69,15 @@ function applyLang() {
 }
 
 function specText(r) {
-  if (r.cpu == null) return `<span class="spec-main">${r.instance || '—'}</span>`;
+  const bomLines = (r.bom || []).map(b =>
+    `<div class="bom-line"><span class="bom-k">${t(b.labelKey, state.lang)}</span>` +
+    `<span class="bom-v">${b.valueKey ? t(b.valueKey, state.lang) : b.value}</span></div>`).join('');
+  if (r.cpu == null) return `<span class="spec-main">${r.instance || '—'}</span>` + bomLines;
   const st = r.storageTB == null ? '' :
     ` / ${r.storageTB >= 1 ? fmtNum(r.storageTB) + 'T' : fmtNum(r.storageTB * 1024) + 'G'}`;
   const inst = r.instance ? `<span class="spec-inst">${r.instance}</span>` : '';
   const main = `<span class="spec-main">${r.cpu} ${t(r.cpuUnitKey, state.lang)} / ${r.memGB}G${st}</span>`;
-  const bom = (r.bom || []).map(b =>
-    `<div class="bom-line"><span class="bom-k">${t(b.labelKey, state.lang)}</span>` +
-    `<span class="bom-v">${b.valueKey ? t(b.valueKey, state.lang) : b.value}</span></div>`).join('');
-  return inst + main + bom;
+  return inst + main + bomLines;
 }
 
 function activeVMProfileId(dataTB) {
