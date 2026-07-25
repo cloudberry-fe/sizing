@@ -253,3 +253,11 @@ test('one quota rule everywhere: concurrency scales cloud layout too', () => {
   assert.equal(std.layout.primaries, 2);   // min(16/8, 128/32)
   assert.equal(xhigh.layout.primaries, 1); // min(16/16, 128/64)
 });
+
+test('surplus memory raises per-segment memory, not segment count', () => {
+  const cloud = calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'aws_ebs' });
+  const segmem = role(cloud, 'datanode').bom.find(b => b.labelKey === 'bom.segmem');
+  assert.equal(segmem.value, '64G'); // 128G / 2 segments — quota is 32G
+  const phys = calcPhysical({ dataTB: 160, compressionRatio: 2, presetId: 'sas_std' });
+  assert.equal(role(phys, 'segment').bom.find(b => b.labelKey === 'bom.segmem').value, '32G'); // 512/16 exact
+});

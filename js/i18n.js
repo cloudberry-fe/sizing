@@ -55,6 +55,7 @@ export const STRINGS = {
   'bom.cache':        { zh: '本地缓存盘', en: 'Local cache disk' },
   'bom.osscap':       { zh: '容量需求（不启用压缩，按需扩展）', en: 'Capacity (uncompressed, scales on demand)' },
   'bom.perseg':       { zh: '每 primary 数据量', en: 'Data per primary' },
+  'bom.segmem':       { zh: '每 segment 实际内存', en: 'Memory per segment' },
   'bom.host':         { zh: '宿主机要求', en: 'Host requirement' },
   'raid.2x12r5':      { zh: '每 12 块盘一组 RAID5，共 2 组（22 盘可用）', en: '2 × RAID5 groups of 12 (22 disks usable)' },
   'raid.1x12r5':      { zh: '12 盘 RAID5（11 盘可用）；需三模 RAID 卡（PERC H755N/H965i、MegaRAID 9560 级）或 VROC，也可 JBOD 靠 mirror 冗余', en: '12-disk RAID5 (11 usable); needs tri-mode RAID (PERC H755N/H965i, MegaRAID 9560-class) or VROC; JBOD + mirror redundancy also viable' },

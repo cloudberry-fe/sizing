@@ -47,8 +47,30 @@
 <p class="en">Baseline: one segment of <strong>8 logical cores (vCPU) + 32 GB</strong> per TB of on-disk data supports up to <strong>~80 concurrent queries</strong> — enough for most data-warehouse workloads. Grounding, from MPP memory-management best practice: 8GB minimum and 32GB recommended per segment; per-query memory <code>statement_mem = gp_vmem_protect_limit × 0.9 ÷ expected_concurrency</code>, and 32G × 0.9 ÷ 80 ≈ 368MB per query is a healthy value. For higher concurrency the per-segment resources scale linearly (advanced options): ≤120 concurrent ×1.5, ≤160 ×2.</p>
 <pre class="zh">perNodeTB    = min( vCPU ÷ (8 × f),  memGB ÷ (32 × f) )     # f = 并发系数：≤80→1（默认）/ ≤120→1.5 / ≤160→2
 computeNodes = CEIL( onDiskTB ÷ perNodeTB )</pre>
+<p class="zh"><strong>「并发」的定义</strong>：指资源组排队后<strong>同时活跃的语句数</strong>（混合 BI/报表负载，每查询约 300–400MB 内存）。如果负载以重型分析查询为主（大表 join、每查询需要 GB 级内存），应按每 segment <strong>5–10 并发</strong>评估——同样的 8 逻辑核 + 32G 配额，此时每查询可分到 32G × 0.9 ÷ 5 ≈ 5.7GB。CPU 本身没有"每核 X 并发"的硬公式：查询靠分时与排队弹性共享 CPU，内存才是并发数的硬约束。</p>
 <pre class="en">perNodeTB    = min( vCPU ÷ (8 × f),  memGB ÷ (32 × f) )     # f = concurrency factor: ≤80→1 (default) / ≤120→1.5 / ≤160→2
 computeNodes = CEIL( onDiskTB ÷ perNodeTB )</pre>
+<p class="en"><strong>What "concurrency" means here</strong>: the number of <strong>simultaneously active statements</strong> after resource-group queueing (mixed BI/reporting workloads, ~300–400MB per query). If the workload is dominated by heavyweight analytical queries (large joins needing GBs per query), plan for <strong>5–10 concurrent per segment</strong> instead — the same 8-logical-core + 32G quota then gives each query 32G × 0.9 ÷ 5 ≈ 5.7GB. There is no hard "X concurrent per core" formula for CPU: queries share CPU elastically via time-slicing and queueing; memory is the hard constraint on concurrency.</p>
+
+<h3><span class="zh">单 Segment 资源配额表（经验值）</span><span class="en">Per-segment resource quota (field experience)</span></h3>
+<p class="zh">一个 primary segment 的完整资源画像。前两行随并发系数缩放；网络与盘 IO 是<strong>单段满载峰值参考</strong>，用于校验主机聚合带宽与阵列吞吐（分析型负载的峰值很少全段同时对齐，不做硬性乘法）：</p>
+<p class="en">The complete resource profile of one primary segment. The first two rows scale with the concurrency factor; network and disk I/O are <strong>per-segment full-load peak references</strong> for sanity-checking host aggregate bandwidth and array throughput (analytical bursts rarely align across all segments, so do not multiply them rigidly):</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th><span class="zh">资源</span><span class="en">Resource</span></th>
+<th><span class="zh">每 segment 配额</span><span class="en">Quota per segment</span></th>
+<th><span class="zh">与 vCPU 比例</span><span class="en">Ratio to vCPU</span></th>
+</tr></thead>
+<tbody>
+<tr><td><span class="zh">逻辑核（vCPU）</span><span class="en">Logical cores (vCPU)</span></td><td>8 × f</td><td>—</td></tr>
+<tr><td><span class="zh">内存</span><span class="en">Memory</span></td><td>32 GB × f</td><td>4 GB : 1 vCPU</td></tr>
+<tr><td><span class="zh">管理数据量（落盘）</span><span class="en">Managed data (on-disk)</span></td><td>1 TB</td><td>128 GB : 1 vCPU</td></tr>
+<tr><td><span class="zh">互联网络</span><span class="en">Interconnect network</span></td><td>4 Gbps</td><td>0.5 Gbps : 1 vCPU</td></tr>
+<tr><td><span class="zh">盘读吞吐</span><span class="en">Disk read</span></td><td>300 MB/s</td><td>≈38 MB/s : 1 vCPU</td></tr>
+<tr><td><span class="zh">盘写吞吐</span><span class="en">Disk write</span></td><td>300 MB/s</td><td>≈38 MB/s : 1 vCPU</td></tr>
+</tbody></table></div>
+<p class="zh">适用并发：混合 BI 负载 ≤80 活跃语句（f=1）；重型分析负载按 5–10 并发/段评估。Coordinator 不套此表，按各路径给出的固定规格配置。</p>
+<p class="en">Applicable concurrency: ≤80 active statements of mixed BI at f=1; plan 5–10 per segment for heavyweight analytics. Coordinators do not follow this table — use the fixed specs given per path.</p>
 
 <h3><span class="zh">存储资源约束（统一公式）</span><span class="en">Storage constraint (unified formula)</span></h3>
 <p class="zh">所有 MPP 路径使用同一个单节点可用容量公式，每个折扣项只出现一次：×0.9 操作系统与文件系统开销、×0.8 预留 20% 空闲、÷(2 + 1/3) 镜像两份加 1/3 工作空间。物理机代入 RAID 后阵列容量，虚拟机/云主机代入数据盘标称容量：</p>
@@ -101,8 +123,8 @@ storageNodes = max( 2, CEIL( onDiskTB ÷ usableTB ) )</pre>
 <p class="en">Coordinator is fixed at 2 (primary + standby), same CPU/memory class, RAID1 system disks + a small data array. The compute constraint uses the host's OS-visible logical cores (2×32C with HT = 128 threads) and memory in the common rule.</p>
 
 <h3><span class="zh">每主机段布局</span><span class="en">Segments per host</span></h3>
-<p class="zh">每台主机部署的 primary 数 = 主机资源 ÷ 单 segment 配额（8 逻辑核/32G × 并发系数），CPU 与内存取较小者；mirror 与 primary 同数量，用 spread mirroring 打散到其他主机（结果页按 <code>N primary + N mirror</code> 展示，并给出每 primary 实际管理的数据量）。核数一律按<strong>操作系统可见的逻辑核</strong>计（x86 开超线程即线程数，ARM 无 SMT 即物理核）——物理机、虚拟机、云主机同一条规则，无任何特判。例：物理机 2×32C 开 HT = 128 线程 / 512G → <strong>16 primary + 16 mirror</strong>；虚拟机 Lite（8 vCPU/32G）→ 1 段；云主机 r5.4xlarge（16 vCPU/128G）→ 2 段。</p>
-<p class="en">Primaries per host = host resources ÷ per-segment quota (8 logical cores / 32G × f), the tighter of CPU and memory; mirrors equal primaries, spread across other hosts (the result page shows <code>N primary + N mirror</code> plus the actual data per primary). Cores always mean <strong>OS-visible logical cores</strong> (thread count on x86 with hyperthreading; physical cores on SMT-less ARM) — one rule for physical, VM, and cloud alike, with no special cases. Examples: a physical host with 2×32C + HT = 128 threads / 512G → <strong>16 primary + 16 mirror</strong>; a Lite VM (8 vCPU/32G) → 1 segment; an r5.4xlarge (16 vCPU/128G) → 2 segments.</p>
+<p class="zh">每台主机部署的 primary 数 = 主机资源 ÷ 单 segment 配额（8 逻辑核/32G × 并发系数），CPU 与内存取较小者；mirror 与 primary 同数量，用 spread mirroring 打散到其他主机（结果页按 <code>N primary + N mirror</code> 展示，并给出每 primary 实际管理的数据量）。核数一律按<strong>操作系统可见的逻辑核</strong>计（x86 开超线程即线程数，ARM 无 SMT 即物理核）——物理机、虚拟机、云主机同一条规则，无任何特判。例：物理机 2×32C 开 HT = 128 线程 / 512G → <strong>16 primary + 16 mirror</strong>；虚拟机 Lite（8 vCPU/32G）→ 1 段；云主机 r5.4xlarge（16 vCPU/128G）→ 2 段。段数由更紧的约束（通常是 CPU）决定；内存富余<strong>不用于加段</strong>，而是抬高每段实际内存（如 r5.4xlarge 每段 64G），直接转化为更高并发余量与更少溢写——这正是内存优化机型的价值：不是更多 segment，是更好的 segment。</p>
+<p class="en">Primaries per host = host resources ÷ per-segment quota (8 logical cores / 32G × f), the tighter of CPU and memory; mirrors equal primaries, spread across other hosts (the result page shows <code>N primary + N mirror</code> plus the actual data per primary). Cores always mean <strong>OS-visible logical cores</strong> (thread count on x86 with hyperthreading; physical cores on SMT-less ARM) — one rule for physical, VM, and cloud alike, with no special cases. Examples: a physical host with 2×32C + HT = 128 threads / 512G → <strong>16 primary + 16 mirror</strong>; a Lite VM (8 vCPU/32G) → 1 segment; an r5.4xlarge (16 vCPU/128G) → 2 segments. The tighter constraint (usually CPU) sets the segment count; surplus memory is <strong>not spent on extra segments</strong> — it raises the actual memory per segment (64G each on r5.4xlarge), buying concurrency headroom and fewer spills. That is the point of memory-optimized instances: not more segments, better segments.</p>
 <p class="zh">每主机 segment 数需综合考虑：核数、内存、网卡数、存储容量、primary/mirror 混布、主机上的 ETL 及其他进程。相关内存参数按以下公式配置（Cloudberry 同名参数）：</p>
 <p class="en">Segments per host must weigh: cores, RAM, NICs, attached storage, the primary/mirror mixture, and ETL or other processes on the host. Memory parameters follow these formulas (same-named Cloudberry GUCs):</p>
 <pre class="zh">gp_vmem（≥256G 主机）      = ((SWAP + RAM) − (7.5GB + 0.05 × RAM)) ÷ 1.17

@@ -30,9 +30,10 @@ export function segLayoutFor(cpu, memGB, concurrencyFactor = 1) {
   return { primaries, mirrors: primaries, capacity };
 }
 
-function layoutBom(layout, perSegTB) {
+function layoutBom(layout, perSegTB, memGB) {
   const lines = [{ labelKey: 'bom.layout', value: `${layout.primaries} primary + ${layout.mirrors} mirror` }];
   if (perSegTB != null) lines.push({ labelKey: 'bom.perseg', value: `≈ ${perSegTB.toFixed(1)} TB` });
+  if (memGB != null) lines.push({ labelKey: 'bom.segmem', value: `${Math.floor(memGB / layout.primaries)}G` });
   return lines;
 }
 
@@ -75,7 +76,7 @@ export function calcPhysical({ dataTB, compressionRatio, presetId, concurrencyFa
           { labelKey: 'bom.datadisk', value: p.bom.dataDisk },
           { labelKey: 'bom.raid', valueKey: p.bom.raidKey },
           { labelKey: 'bom.nic', value: p.network },
-          ...layoutBom(layout, perSegTB),
+          ...layoutBom(layout, perSegTB, p.memGB),
         ] },
     ],
     binding: { type: computeNodes > storageNodes ? 'compute' : 'storage', storageNodes, computeNodes },
@@ -109,7 +110,7 @@ export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor 
           { labelKey: 'bom.datadisk', value: `${p.storageTB}TB SSD` },
           { labelKey: 'bom.throughput', value: p.throughput },
           { labelKey: 'bom.host', valueKey: p.hostKey },
-          ...layoutBom(layout, perSegTB),
+          ...layoutBom(layout, perSegTB, p.memGB),
         ] },
     ],
     binding: { type: n.computeNodes > n.storageNodes ? 'compute' : 'storage',
@@ -140,7 +141,7 @@ export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFacto
       { key: 'datanode', count: n.dataNodes, cpu: seg.vcpu, memGB: seg.memGB,
         storageTB: seg.storageTB, instance: seg.instance,
         cpuUnitKey: 'unit.vcpu', noteKey: s.noteKey || 'note.datanode.vm',
-        bom: [{ labelKey: 'bom.datadisk', value: seg.diskDesc }, ...layoutBom(layout, perSegTB)] },
+        bom: [{ labelKey: 'bom.datadisk', value: seg.diskDesc }, ...layoutBom(layout, perSegTB, seg.memGB)] },
       { key: 'oss', count: 1, cpu: null, memGB: null, storageTB: null,
         instance: s.oss, noteKey: 'note.oss' },
     ],
