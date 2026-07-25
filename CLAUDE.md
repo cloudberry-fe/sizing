@@ -26,7 +26,7 @@ Zero-build vanilla JS (ES modules):
 - `js/i18n.js` — zh/en flat string table, `t(key, lang)`.
 - `js/app.js` — DOM wiring only; no sizing math. Selection state lives in the `state`
   object, not in rebuilt DOM (language toggle must never reset user choices).
-- Formula provenance: `docs/superpowers/specs/2026-07-24-sizing-calculator-design.md`
+- Formula provenance: internal design docs in `/home/ryan/docs/sizing/design-docs/`
   (legacy sizing tool v2.1, HashData Deployment Spec 2025, fin-industry customer deck 2023,
   MPP 7.7 Cloud Technical Recommendations).
 

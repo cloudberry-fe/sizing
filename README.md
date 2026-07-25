@@ -18,4 +18,4 @@ get node counts, per-node specs, and a resource summary. zh/en.
 GitHub Pages, main branch root. No build step.
 
 Sizing rules live in `js/config.js`; calculation logic in `js/calc.js`;
-design spec in `docs/superpowers/specs/`.
+methodology is documented on the site itself (`methodology.html`).
