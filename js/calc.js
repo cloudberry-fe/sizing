@@ -84,7 +84,8 @@ export function recommendVMProfile(dataTB) {
   return VM_PROFILES.find(p => dataTB <= p.maxTB);
 }
 
-export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor = 1, mirrored = true }) {
+export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor = 1, mirrorless = false }) {
+  const mirrored = !mirrorless;
   const p = VM_PROFILES.find(x => x.id === profileId);
   const usable = nodeUsableTB(p.storageTB, mirrored);
   const onDiskTB = dataTB / compressionRatio;
@@ -117,10 +118,10 @@ export function calcVM({ dataTB, compressionRatio, profileId, concurrencyFactor 
   };
 }
 
-export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFactor = 1 }) {
+export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFactor = 1, mirrorless = false }) {
   const s = CLOUD_SCHEMES.find(x => x.id === schemeId);
   const seg = s.segment;
-  const mirrored = s.mirrored !== false;
+  const mirrored = !(mirrorless && s.mirrorlessCapable); // local-disk schemes always keep mirrors
   const usable = nodeUsableTB(seg.storageTB, mirrored);
   const onDiskTB = dataTB / compressionRatio;
   const layout = { ...segLayoutFor(seg.vcpu, seg.memGB, concurrencyFactor) };
@@ -140,7 +141,7 @@ export function calcCloud({ dataTB, compressionRatio, schemeId, concurrencyFacto
         bom: [{ labelKey: 'bom.datadisk', value: s.coordinator.diskDesc }] },
       { key: 'datanode', count: n.dataNodes, cpu: seg.vcpu, memGB: seg.memGB,
         storageTB: seg.storageTB, instance: seg.instance,
-        cpuUnitKey: 'unit.vcpu', noteKey: s.noteKey || (mirrored ? 'note.datanode.vm' : 'note.datanode.nomirror'),
+        cpuUnitKey: 'unit.vcpu', noteKey: mirrored ? (s.noteKey || 'note.datanode.vm') : 'note.datanode.nomirror',
         bom: [{ labelKey: 'bom.datadisk', value: seg.diskDesc }, ...layoutBom(layout, perSegTB, seg.memGB)] },
       { key: 'oss', count: 1, cpu: null, memGB: null, storageTB: null,
         instance: s.oss, noteKey: 'note.oss' },

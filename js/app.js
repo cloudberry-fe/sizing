@@ -98,9 +98,9 @@ function compute() {
   if (state.infra === 'physical') {
     r = calcPhysical({ dataTB, compressionRatio, presetId: state.presetId, concurrencyFactor });
   } else if (state.infra === 'vm') {
-    r = calcVM({ dataTB, compressionRatio, profileId: activeVMProfileId(dataTB), concurrencyFactor, mirrored: !$('vm-distributed').checked });
+    r = calcVM({ dataTB, compressionRatio, profileId: activeVMProfileId(dataTB), concurrencyFactor, mirrorless: $('mirrorless').checked });
   } else if (state.infra === 'cloud') {
-    r = calcCloud({ dataTB, compressionRatio, schemeId: state.schemeId, concurrencyFactor });
+    r = calcCloud({ dataTB, compressionRatio, schemeId: state.schemeId, concurrencyFactor, mirrorless: $('mirrorless').checked });
   } else {
     r = calcEnterprise({ dataTB, concurrencyFactor });
   }
@@ -142,6 +142,12 @@ function compute() {
     rows.map(([k, v]) => `<tr><th>${t(k, state.lang)}</th><td>${v}</td></tr>`).join('');
 }
 
+function updateMirrorlessRow() {
+  const scheme = CLOUD_SCHEMES.find(x => x.id === state.schemeId);
+  const applicable = state.infra === 'vm' || (state.infra === 'cloud' && scheme && scheme.mirrorlessCapable);
+  $('mirrorless-row').hidden = !applicable;
+}
+
 function showAdvancedFor(infra) {
   document.querySelectorAll('.adv').forEach(el => {
     el.hidden = !el.dataset.for.split(' ').includes(infra);
@@ -149,6 +155,7 @@ function showAdvancedFor(infra) {
   document.querySelectorAll('.lightning-only').forEach(el => {
     el.hidden = infra === 'container';
   });
+  updateMirrorlessRow();
 }
 
 $('enable-css').addEventListener('input', () => {
@@ -177,7 +184,7 @@ $('preset-cards').addEventListener('click', e => {
 });
 
 $('vm-profile').addEventListener('input', () => { state.vmProfileSel = $('vm-profile').value; compute(); });
-$('cloud-scheme').addEventListener('input', () => { state.schemeId = $('cloud-scheme').value; compute(); });
+$('cloud-scheme').addEventListener('input', () => { state.schemeId = $('cloud-scheme').value; updateMirrorlessRow(); compute(); });
 
 $('lang-toggle').addEventListener('click', () => {
   state.lang = state.lang === 'zh' ? 'en' : 'zh';
@@ -186,7 +193,7 @@ $('lang-toggle').addEventListener('click', () => {
   compute();
 });
 
-['data-size', 'data-unit', 'compression', 'concurrency', 'vm-distributed']
+['data-size', 'data-unit', 'compression', 'concurrency', 'mirrorless']
   .forEach(id => $(id).addEventListener('input', compute));
 
 applyLang();

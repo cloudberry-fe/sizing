@@ -102,21 +102,31 @@ test('vm medium 30TB cr=2: 14 nodes, coordinator fixed 8vCPU/32G', () => {
 
 // --- Cloud (schemes) ---
 
-test('cloud aws_ebs 20TB cr=2: mirrorless on managed disks, compute-bound 5 nodes', () => {
+test('cloud aws_ebs 20TB cr=2 default: mirrored, storage-bound 6 nodes', () => {
   const r = calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'aws_ebs' });
   const dn = role(r, 'datanode');
   assert.equal(dn.instance, 'r5.4xlarge');
-  assert.equal(r.binding.storageNodes, 4); // ceil(10 / (6*0.54)=3.24) — no mirror copy
+  assert.equal(r.binding.storageNodes, 6); // ceil(10/1.851) — mirror copy included
   assert.equal(r.binding.computeNodes, 5); // ceil(10 / min(16/8, 128/32)=2)
-  assert.equal(dn.count, 5);               // no evenUp without mirrors
-  assert.equal(r.layout.mirrors, 0);
-  assert.ok(dn.bom.some(b => b.labelKey === 'bom.layout' && b.value === '2 primary'));
+  assert.equal(dn.count, 6);
+  assert.equal(r.layout.mirrors, 2);
   assert.equal(role(r, 'coordinator').instance, 'r5.xlarge');
   assert.ok(r.roles.some(x => x.key === 'oss'));
 });
 
-test('vm mirrorless toggle: distributed storage drops mirror copy and even rule', () => {
-  const r = calcVM({ dataTB: 10, compressionRatio: 1, profileId: 'lite', mirrored: false });
+test('cloud mirrorless opt-in: managed disks drop mirrors; local schemes ignore it', () => {
+  const r = calcCloud({ dataTB: 20, compressionRatio: 2, schemeId: 'aws_ebs', mirrorless: true });
+  assert.equal(r.binding.storageNodes, 4); // ceil(10 / (6*0.54)=3.24)
+  assert.equal(role(r, 'datanode').count, 5); // no evenUp without mirrors
+  assert.equal(r.layout.mirrors, 0);
+  assert.ok(role(r, 'datanode').bom.some(b => b.labelKey === 'bom.layout' && b.value === '2 primary'));
+  const local = calcCloud({ dataTB: 50, compressionRatio: 1, schemeId: 'azure_local', mirrorless: true });
+  assert.equal(role(local, 'datanode').count, 86); // unchanged — local disks always mirrored
+  assert.equal(local.layout.mirrors, 1);
+});
+
+test('vm mirrorless opt-in drops mirror copy and even rule', () => {
+  const r = calcVM({ dataTB: 10, compressionRatio: 1, profileId: 'lite', mirrorless: true });
   assert.equal(r.binding.storageNodes, 10); // ceil(10 / (2*0.54)=1.08)
   assert.equal(role(r, 'datanode').count, 10);
   assert.equal(r.layout.mirrors, 0);

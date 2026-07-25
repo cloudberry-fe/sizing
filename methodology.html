@@ -137,8 +137,8 @@ gp_vmem_protect_limit      = gp_vmem ÷ max_acting_primary_segments
 statement_mem              = gp_vmem_protect_limit × 0.9 ÷ expected_concurrency</pre>
 
 <h2>4. <span class="zh">虚拟机</span><span class="en">VM</span> · Cloudberry MPP</h2>
-<p class="zh">存储节点数用统一公式，nominalTB 代入虚拟机数据盘标称容量。若底层为 vSAN 等分布式存储（高级选项勾选「冗余由存储层提供」），则不部署 mirror——存储层已有多副本，segment 再镜像纯属浪费，可用容量近乎翻倍。</p>
-<p class="en">Storage nodes use the unified formula with nominalTB = the VM's nominal data-disk capacity. On distributed storage such as vSAN (advanced option "redundancy at the storage layer"), no mirrors are deployed — the storage layer already keeps multiple replicas, so segment mirroring would be pure waste; usable capacity nearly doubles.</p>
+<p class="zh">存储节点数用统一公式，nominalTB 代入虚拟机数据盘标称容量。默认部署 primary+mirror；若底层为 vSAN 等多副本分布式存储，可勾选高级选项「Mirrorless 部署」——存储层已有冗余，segment 镜像可省，可用容量近乎翻倍（需商业适配，见通用规则）。</p>
+<p class="en">Storage nodes use the unified formula with nominalTB = the VM's nominal data-disk capacity. Primary+mirror is the default; on replicated distributed storage such as vSAN you may opt into the advanced "Mirrorless deployment" option — the storage layer already keeps replicas, so mirrors can be skipped and usable capacity nearly doubles (commercial adaptation required, see common rules).</p>
 <p class="zh">三档虚拟机规格（1:4 内存比，每档 = N × 单 segment 的 8c/32G；如需更多缓存/并发余量可升到 1:8 内存优化型，不影响节点数）。按数据量自动推荐，可手动覆盖：</p>
 <p class="en">Three VM profiles (1:4 memory ratio — each tier is exactly N × the 8c/32G per-segment quota; a 1:8 memory-optimized variant adds cache/concurrency headroom without changing node counts). Auto-recommended by data size, manual override available:</p>
 <div class="table-wrap"><table>
@@ -162,12 +162,12 @@ statement_mem              = gp_vmem_protect_limit × 0.9 ÷ expected_concurrenc
 <p class="zh">节点数公式与虚拟机相同，单节点存储取所选云方案的数据盘容量。每个云厂商提供两套方案：</p>
 <p class="en">Same node-count formula as VM, with per-node storage from the selected cloud scheme. Two schemes per provider:</p>
 <ul class="zh">
-<li><strong>云盘方案</strong>（云平台部署最佳实践）：AWS r5.4xlarge + 3×EBS ST1/GP3；Azure Standard_E16s_v5 + 3×P40 Premium SSD；GCP n2-highmem-8 + pd-ssd。云盘自身多副本且支持快照，因此<strong>不部署 mirror</strong>，可用容量近乎翻倍。</li>
-<li><strong>本地盘方案</strong>（生产部署实践）：AWS i3en.2xlarge、Azure Standard_L8s_v3、GCP c3d-standard-8-lssd 本地 NVMe。吞吐更高、成本更低；本地盘随主机失效，因此<strong>保留 primary/mirror 双副本</strong>。</li>
+<li><strong>云盘方案</strong>（云平台部署最佳实践）：AWS r5.4xlarge + 3×EBS ST1/GP3；Azure Standard_E16s_v5 + 3×P40 Premium SSD；GCP n2-highmem-8 + pd-ssd。默认同样部署 primary+mirror；云盘自身多副本且支持快照，可勾选「Mirrorless 部署」省去 mirror、可用容量近乎翻倍（需商业适配）。</li>
+<li><strong>本地盘方案</strong>（生产部署实践）：AWS i3en.2xlarge、Azure Standard_L8s_v3、GCP c3d-standard-8-lssd 本地 NVMe。吞吐更高、成本更低；本地盘随主机失效，因此<strong>始终保留 primary/mirror</strong>（Mirrorless 选项不适用）。</li>
 </ul>
 <ul class="en">
-<li><strong>Managed-disk schemes</strong> (cloud deployment best practice): AWS r5.4xlarge + 3×EBS ST1/GP3; Azure Standard_E16s_v5 + 3×P40 Premium SSD; GCP n2-highmem-8 + pd-ssd. Managed disks are replicated and snapshot-capable, so <strong>no segment mirrors are deployed</strong> — usable capacity nearly doubles.</li>
-<li><strong>Local-NVMe schemes</strong> (production practice): AWS i3en.2xlarge, Azure Standard_L8s_v3, GCP c3d-standard-8-lssd. Higher throughput, lower cost; local disks die with the host, so <strong>primary/mirror is kept</strong>.</li>
+<li><strong>Managed-disk schemes</strong> (cloud deployment best practice): AWS r5.4xlarge + 3×EBS ST1/GP3; Azure Standard_E16s_v5 + 3×P40 Premium SSD; GCP n2-highmem-8 + pd-ssd. Primary+mirror by default; managed disks are replicated and snapshot-capable, so the "Mirrorless deployment" option can skip mirrors and nearly double usable capacity (commercial adaptation required).</li>
+<li><strong>Local-NVMe schemes</strong> (production practice): AWS i3en.2xlarge, Azure Standard_L8s_v3, GCP c3d-standard-8-lssd. Higher throughput, lower cost; local disks die with the host, so <strong>primary/mirror is always kept</strong> (the mirrorless option does not apply).</li>
 </ul>
 <p class="zh">附加建议：Azure 使用 UDP interconnect 并预留端口 65330；GCP 上建议用更多的小节点（相对 AWS）。</p>
 <p class="en">Extra guidance: on Azure use the UDP interconnect and reserve port 65330; on GCP prefer more, smaller nodes (vs AWS).</p>

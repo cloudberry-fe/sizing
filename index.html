@@ -53,11 +53,6 @@
       <label for="vm-profile" data-i18n="vmprofile.title"></label>
       <select id="vm-profile"></select>
       <p id="vm-profile-hint" class="hint"></p>
-      <label class="check-row">
-        <input id="vm-distributed" type="checkbox">
-        <span data-i18n="adv.distributed"></span>
-      </label>
-      <p class="hint" data-i18n="adv.distributed.hint"></p>
     </div>
 
     <div class="adv" data-for="cloud">
@@ -76,6 +71,13 @@
           <span data-i18n="adv.concurrency"></span>
           <select id="concurrency"></select>
         </label>
+      </div>
+      <div id="mirrorless-row">
+        <label class="check-row">
+          <input id="mirrorless" type="checkbox">
+          <span data-i18n="adv.mirrorless"></span>
+        </label>
+        <p class="hint" data-i18n="adv.mirrorless.hint"></p>
       </div>
       <label class="check-row">
         <input id="enable-css" type="checkbox">
