@@ -115,8 +115,8 @@ statement_mem              = gp_vmem_protect_limit × 0.9 ÷ expected_concurrenc
 <h2>4. <span class="zh">虚拟机</span><span class="en">VM</span> · Cloudberry MPP</h2>
 <p class="zh">存储节点数用统一公式，nominalTB 代入虚拟机数据盘标称容量（与 2025 部署规范的 0.7÷(2+1/3) 口径数值上基本一致，差异 ≈3%）。</p>
 <p class="en">Storage nodes use the unified formula with nominalTB = the VM's nominal data-disk capacity (numerically within ~3% of the 2025 deployment spec's 0.7÷(2+1/3) convention).</p>
-<p class="zh">三档虚拟机规格，按数据量自动推荐（可手动覆盖）：</p>
-<p class="en">Three VM profiles, auto-recommended by data size (manual override available):</p>
+<p class="zh">三档虚拟机规格（1:4 内存比，每档 = N × 单 segment 的 8c/32G；如需更多缓存/并发余量可升到 1:8 内存优化型，不影响节点数）。按数据量自动推荐，可手动覆盖：</p>
+<p class="en">Three VM profiles (1:4 memory ratio — each tier is exactly N × the 8c/32G per-segment quota; a 1:8 memory-optimized variant adds cache/concurrency headroom without changing node counts). Auto-recommended by data size, manual override available:</p>
 <div class="table-wrap"><table>
 <thead><tr>
 <th><span class="zh">规格</span><span class="en">Profile</span></th>
@@ -126,11 +126,11 @@ statement_mem              = gp_vmem_protect_limit × 0.9 ÷ expected_concurrenc
 <th><span class="zh">宿主机要求</span><span class="en">Host</span></th>
 </tr></thead>
 <tbody>
-<tr><td>Lite</td><td>≤5 TB</td><td>8 / 64G / 2T SSD</td><td>≥500 MB/s</td>
+<tr><td>Lite</td><td>≤5 TB</td><td>8 / 32G / 2T SSD</td><td>≥500 MB/s</td>
 <td><span class="zh">可共享宿主机</span><span class="en">Shared host OK</span></td></tr>
-<tr><td>Medium</td><td>≤50 TB</td><td>16 / 128G / 4T SSD</td><td>≥1000 MB/s</td>
+<tr><td>Medium</td><td>≤50 TB</td><td>16 / 64G / 4T SSD</td><td>≥1000 MB/s</td>
 <td><span class="zh">CPU 超配 ≤1:2</span><span class="en">CPU overcommit ≤1:2</span></td></tr>
-<tr><td>Large</td><td>&gt;50 TB</td><td>24 / 256G / 8T SSD</td><td>≥1500 MB/s</td>
+<tr><td>Large</td><td>&gt;50 TB</td><td>24 / 96G / 8T SSD</td><td>≥1500 MB/s</td>
 <td><span class="zh">独占宿主机，1:1 物理资源</span><span class="en">Dedicated host, 1:1 physical</span></td></tr>
 </tbody></table></div>
 

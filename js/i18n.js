@@ -32,9 +32,9 @@ export const STRINGS = {
 
   'vmprofile.title':  { zh: '虚拟机规格', en: 'VM profile' },
   'vmprofile.auto':   { zh: '自动推荐（按数据量）', en: 'Auto (by data size)' },
-  'vmprofile.lite':   { zh: 'Lite — 8 vCPU / 64G / 2T（≤5TB）', en: 'Lite — 8 vCPU / 64G / 2T (≤5TB)' },
-  'vmprofile.medium': { zh: 'Medium — 16 vCPU / 128G / 4T（≤50TB）', en: 'Medium — 16 vCPU / 128G / 4T (≤50TB)' },
-  'vmprofile.large':  { zh: 'Large — 24 vCPU / 256G / 8T（>50TB）', en: 'Large — 24 vCPU / 256G / 8T (>50TB)' },
+  'vmprofile.lite':   { zh: 'Lite — 8 vCPU / 32G / 2T（≤5TB）', en: 'Lite — 8 vCPU / 32G / 2T (≤5TB)' },
+  'vmprofile.medium': { zh: 'Medium — 16 vCPU / 64G / 4T（≤50TB）', en: 'Medium — 16 vCPU / 64G / 4T (≤50TB)' },
+  'vmprofile.large':  { zh: 'Large — 24 vCPU / 96G / 8T（>50TB）', en: 'Large — 24 vCPU / 96G / 8T (>50TB)' },
   'vmprofile.picked': { zh: '已自动选择 {p} 档', en: 'Auto-selected profile: {p}' },
   'vmhost.lite':      { zh: '可共享宿主机', en: 'Shared host acceptable' },
   'vmhost.medium':    { zh: 'CPU 超配比 ≤ 1:2', en: 'CPU overcommit ≤ 1:2' },

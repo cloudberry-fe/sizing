@@ -51,10 +51,13 @@ export const PHYSICAL_PRESETS = [
 ];
 
 // VM profiles (legacy v2.1 virtualized sizing, modernized). maxTB = business data threshold.
+// 1:4 vCPU:memory, exactly N x (8c/32G per segment). Memory-optimized (1:8)
+// variants are a valid upgrade for extra cache/concurrency headroom but do
+// not change node counts under the compute rule.
 export const VM_PROFILES = [
-  { id: 'lite',   maxTB: 5,        vcpu: 8,  memGB: 64,  storageTB: 2, throughput: '≥ 500 MB/s',  hostKey: 'vmhost.lite' },
-  { id: 'medium', maxTB: 50,       vcpu: 16, memGB: 128, storageTB: 4, throughput: '≥ 1000 MB/s', hostKey: 'vmhost.medium' },
-  { id: 'large',  maxTB: Infinity, vcpu: 24, memGB: 256, storageTB: 8, throughput: '≥ 1500 MB/s', hostKey: 'vmhost.large' },
+  { id: 'lite',   maxTB: 5,        vcpu: 8,  memGB: 32, storageTB: 2, throughput: '≥ 500 MB/s',  hostKey: 'vmhost.lite' },
+  { id: 'medium', maxTB: 50,       vcpu: 16, memGB: 64, storageTB: 4, throughput: '≥ 1000 MB/s', hostKey: 'vmhost.medium' },
+  { id: 'large',  maxTB: Infinity, vcpu: 24, memGB: 96, storageTB: 8, throughput: '≥ 1500 MB/s', hostKey: 'vmhost.large' },
 ];
 export const VM_COORD = { vcpu: 8, memGB: 32, storageTB: 0.5 };
 
