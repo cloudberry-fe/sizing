@@ -73,8 +73,8 @@ computeNodes = CEIL( onDiskTB ÷ perNodeTB )</pre>
 <p class="en">Applicable concurrency: ≤80 active statements of mixed BI at f=1; plan 5–10 per segment for heavyweight analytics. Coordinators do not follow this table — use the fixed specs given per path.</p>
 
 <h3><span class="zh">存储资源约束（统一公式）</span><span class="en">Storage constraint (unified formula)</span></h3>
-<p class="zh">所有 MPP 路径使用同一个单节点可用容量公式，每个折扣项只出现一次：×0.9 操作系统与文件系统开销、×0.8 预留 20% 空闲、÷(副本数 + 1/3 工作空间)。<strong>副本数取 2（segment 自带 mirror）或 1（冗余由存储层提供——云盘多副本、vSAN 等分布式存储，此时无需 mirror，可用容量近乎翻倍）</strong>。注意：<strong>当前开源 Cloudberry 尚不支持 mirrorless 部署</strong>——选用无 mirror 方案需联系 Cloudberry 商业支持厂商适配，或自行适配相关平台能力。物理机代入 RAID 后阵列容量，虚拟机/云主机代入数据盘标称容量：</p>
-<p class="en">Every MPP path uses one per-node usable-capacity formula, each discount applied exactly once: ×0.9 OS/filesystem overhead, ×0.8 to keep 20% free, ÷(copies + 1/3 workspace). <strong>Copies is 2 with segment mirroring, or 1 when the storage layer provides redundancy (replicated cloud disks, vSAN-style distributed storage — no mirrors needed, usable capacity nearly doubles)</strong>. Note: <strong>open-source Cloudberry does not support mirrorless deployment out of the box</strong> — mirrorless schemes require adaptation by a commercial Cloudberry support vendor, or adapting the platform capability yourself. Physical passes post-RAID array capacity; VM/cloud pass nominal data-disk capacity:</p>
+<p class="zh">所有 MPP 路径使用同一个单节点可用容量公式，每个折扣项只出现一次：×0.9 操作系统与文件系统开销、×0.8 预留 20% 空闲、÷(副本数 + 1/3 工作空间)。<strong>副本数取 2（segment 自带 mirror）或 1（冗余由存储层提供——云盘多副本、vSAN 等分布式存储，此时无需 mirror，可用容量近乎翻倍）</strong>。注意：<strong>当前开源 Cloudberry 尚不支持 mirrorless 部署</strong>——选用无 mirror 方案需联系 Cloudberry 商业支持厂商适配，或自行适配相关平台能力（平台能力清单见第 8 节）。物理机代入 RAID 后阵列容量，虚拟机/云主机代入数据盘标称容量：</p>
+<p class="en">Every MPP path uses one per-node usable-capacity formula, each discount applied exactly once: ×0.9 OS/filesystem overhead, ×0.8 to keep 20% free, ÷(copies + 1/3 workspace). <strong>Copies is 2 with segment mirroring, or 1 when the storage layer provides redundancy (replicated cloud disks, vSAN-style distributed storage — no mirrors needed, usable capacity nearly doubles)</strong>. Note: <strong>open-source Cloudberry does not support mirrorless deployment out of the box</strong> — mirrorless schemes require adaptation by a commercial Cloudberry support vendor, or adapting the platform capability yourself (see section 8 for the platform capability checklist). Physical passes post-RAID array capacity; VM/cloud pass nominal data-disk capacity:</p>
 <pre class="zh">usableTB     = nominalTB × 0.9 × 0.8 ÷ (copies + 1/3)   # 有 mirror ≈ ×0.31 / 无 mirror ≈ ×0.54
 storageNodes = max( 2, CEIL( onDiskTB ÷ usableTB ) )</pre>
 <pre class="en">usableTB     = nominalTB × 0.9 × 0.8 ÷ (copies + 1/3)   # mirrored ≈ ×0.31 / mirrorless ≈ ×0.54
@@ -190,6 +190,74 @@ localCache  = 1TB × 50% × f          # std 500G / high 750G / very high 1T</pr
 <p class="zh">资源汇总 = Σ(各角色节点数 × 每节点规格)。「可承载数据量」是把最终节点数代回存储公式反推的上限——它 ≥ 你输入的数据量，差值就是本方案的自然余量。</p>
 <p class="en">Totals sum count × per-node spec across roles. "Usable data capacity" inverts the storage formula at the final node count — it is ≥ your input, and the difference is the recommendation's natural headroom.</p>
 <pre>capacityTB = nodes × usableTB × compressionRatio</pre>
+
+<h2>8. <span class="zh">Mirrorless 部署前置条件</span><span class="en">Mirrorless prerequisites</span></h2>
+<p class="zh">Mirrorless 的本质是<strong>数据库层不做副本，冗余与故障恢复全部押在平台上</strong>。因此只有当底层虚拟化 + 分布式存储平台（vSAN、Ceph 类多副本块存储等）补齐下列能力时才成立。此清单可直接用于与平台厂商核对能力。</p>
+<p class="en">Mirrorless means <strong>the database keeps no second copy — redundancy and failure recovery rest entirely on the platform</strong>. It only holds up when the underlying virtualization + distributed storage stack (vSAN, Ceph-style replicated block storage, etc.) provides all of the capabilities below. Use this list to verify platform capabilities with your vendor.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th><span class="zh">平台能力</span><span class="en">Platform capability</span></th>
+<th><span class="zh">要求</span><span class="en">Requirement</span></th>
+<th><span class="zh">必需性</span><span class="en">Necessity</span></th>
+</tr></thead>
+<tbody>
+<tr>
+<td><span class="zh">多副本块存储</span><span class="en">Replicated block storage</span></td>
+<td><span class="zh">数据盘走平台多副本/EC 云硬盘，副本数 ≥2（建议 3）；<strong>不能用本地盘或直通盘</strong>，否则 VM 迁走后盘不跟随</span><span class="en">Data disks on platform-replicated (or EC) volumes, ≥2 replicas (3 recommended); <strong>never local or passthrough disks</strong> — the volume must follow the VM</span></td>
+<td><span class="zh">硬要求</span><span class="en">Mandatory</span></td>
+</tr>
+<tr>
+<td><span class="zh">虚拟机 HA（主机故障自动疏散）</span><span class="en">VM HA (auto-evacuate on host failure)</span></td>
+<td><span class="zh">宿主机宕机后自动在其他主机拉起同一 VM 并挂回原卷。<strong>此项不满足则 mirrorless 不成立</strong>——段无副本又无人拉起，集群将持续不可用</span><span class="en">On host failure the same VM restarts on another host with its volume reattached. <strong>Without this, mirrorless does not hold</strong> — a segment has no replica and nothing brings it back, so the cluster stays down</span></td>
+<td><span class="zh">硬要求</span><span class="en">Mandatory</span></td>
+</tr>
+<tr>
+<td><span class="zh">容量预留（N+1）</span><span class="en">Capacity reservation (N+1)</span></td>
+<td><span class="zh">保证任一主机故障时，剩余主机能装下被疏散的全部 VM（等价 admission control）</span><span class="en">Guarantee the surviving hosts can absorb every evacuated VM after any single host failure (admission-control equivalent)</span></td>
+<td><span class="zh">硬要求</span><span class="en">Mandatory</span></td>
+</tr>
+<tr>
+<td><span class="zh">数据库随 OS 自启</span><span class="en">Database autostart with the OS</span></td>
+<td><span class="zh">VM 拉起后 segment 进程自动启动；自动重启间隔应大于集群故障探测间隔，避免反复抖动</span><span class="en">Segment processes start automatically once the VM is up; keep the restart interval longer than the cluster fault-probe interval to avoid flapping</span></td>
+<td><span class="zh">硬要求</span><span class="en">Mandatory</span></td>
+</tr>
+<tr>
+<td><span class="zh">反亲和组</span><span class="en">Anti-affinity groups</span></td>
+<td><span class="zh">Coordinator 主备不落同一宿主机。段之间 mirrorless 无需反亲和（没有 mirror 需要隔离）</span><span class="en">Keep coordinator and standby off the same host. Segments need no anti-affinity under mirrorless — there is no mirror to separate</span></td>
+<td><span class="zh">建议</span><span class="en">Recommended</span></td>
+</tr>
+<tr>
+<td><span class="zh">网络分离</span><span class="en">Network separation</span></td>
+<td><span class="zh">存储副本流量与 interconnect 流量分离（物理或 VLAN），≥25GbE，全集群 MTU 一致；确认平台无 UDP 限速策略</span><span class="en">Separate storage-replication traffic from interconnect traffic (physically or by VLAN), ≥25GbE, consistent MTU cluster-wide; confirm no platform-side UDP rate limiting</span></td>
+<td><span class="zh">建议</span><span class="en">Recommended</span></td>
+</tr>
+</tbody></table></div>
+
+<h3><span class="zh">代价：RTO 从秒级变分钟级</span><span class="en">The trade-off: RTO goes from seconds to minutes</span></h3>
+<p class="zh">带 mirror 时主机故障是<strong>秒级切换到 mirror，业务在线不断</strong>；mirrorless 下段没有副本，故障期间查询直接失败，<strong>恢复时间 = 平台判死 + VM 拉起 + 数据库自启</strong>，通常分钟级。选择 mirrorless 前先确认业务能接受这个 RTO。</p>
+<p class="en">With mirrors, a host failure fails over to the mirror <strong>in seconds and queries keep running</strong>. Under mirrorless the segment has no replica, so queries fail outright and <strong>recovery time = platform failure detection + VM restart + database autostart</strong> — typically minutes. Confirm the business accepts that RTO before choosing mirrorless.</p>
+
+<h3><span class="zh">必须压测的吞吐</span><span class="en">Throughput must be proven</span></h3>
+<p class="zh">单 segment 配额要求 300 MB/s 读 + 300 MB/s 写（见配额表）。多副本网络存储有写放大与网络往返，需全闪介质 + 独立高速存储网才可能达标。POC 必测三项：单 VM 顺序读写、全集群并发扫描的聚合带宽、以及<strong>故障注入</strong>（拔掉一台主机，实测 RTO 与数据完整性）。</p>
+<p class="en">Each segment's quota calls for 300 MB/s read + 300 MB/s write (see the quota table). Replicated network storage adds write amplification and network round-trips, so all-flash media plus a dedicated high-speed storage network are required to get there. Three POC musts: single-VM sequential read/write, cluster-wide concurrent scan aggregate bandwidth, and <strong>failure injection</strong> — pull a host and measure the real RTO and data integrity.</p>
+
+<h3><span class="zh">注意副本叠乘</span><span class="en">Watch out for stacked replication</span></h3>
+<p class="zh">本工具的容量公式只计<strong>数据库层</strong>副本（copies）；平台层副本需再乘一次。这也是分布式存储上 mirrorless 的最大价值——避免双层副本叠乘：</p>
+<p class="en">This tool's capacity formula counts <strong>database-layer</strong> copies only; platform-layer replication multiplies on top. Avoiding that stacked amplification is the main value of mirrorless on distributed storage:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th><span class="zh">方案</span><span class="en">Scheme</span></th>
+<th><span class="zh">1 TB 落盘数据 → 物理裸容量</span><span class="en">1 TB on-disk data → raw capacity</span></th>
+</tr></thead>
+<tbody>
+<tr><td><span class="zh">数据库 mirror + 平台 3 副本</span><span class="en">DB mirror + 3-way platform replication</span></td><td>2 × 3 = <strong>6 TB</strong></td></tr>
+<tr><td><span class="zh">Mirrorless + 平台 3 副本</span><span class="en">Mirrorless + 3-way platform replication</span></td><td>1 × 3 = <strong>3 TB</strong></td></tr>
+<tr><td><span class="zh">Mirrorless + 平台 EC 4+2</span><span class="en">Mirrorless + platform EC 4+2</span></td><td><span class="zh">1 × 1.5 = <strong>1.5 TB</strong>（EC 写惩罚重，需实测）</span><span class="en">1 × 1.5 = <strong>1.5 TB</strong> (EC write penalty is heavy — measure it)</span></td></tr>
+</tbody></table></div>
+
+<h3><span class="zh">数据库侧</span><span class="en">On the database side</span></h3>
+<p class="zh">初始化时不配置 mirror 本身很简单，难的是故障恢复流程、自启集成与支持背书。<strong>当前开源 Cloudberry 不提供 mirrorless 的编排与支持</strong>，需联系 Cloudberry 商业支持厂商适配，或自行适配相关平台能力。</p>
+<p class="en">Initializing without mirrors is the easy part; the hard parts are the failure-recovery runbook, autostart integration, and a support commitment. <strong>Open-source Cloudberry provides no mirrorless orchestration or support</strong> — engage a commercial Cloudberry support vendor, or adapt the platform capability yourself.</p>
 
 <p style="margin-top:26px" class="zh">⚠ 所有结果为估算值，实际配置请以 POC 验证为准。</p>
 <p style="margin-top:26px" class="en">⚠ All results are estimates; validate with a POC before final sizing.</p>
